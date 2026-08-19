@@ -1,66 +1,31 @@
-import Link from "next/link";
 import { Hero } from "@/components/landing/Hero";
-import { Card } from "@/components/ui/Card";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { LawyerCta } from "@/components/landing/LawyerCta";
 import { LEGAL_AREA_LABELS } from "@/lib/constants";
-
-const STEPS = [
-  { title: "Conte seu caso", text: "Preencha um formulário rápido com os detalhes da sua situação." },
-  { title: "Advogados entram em contato", text: "Até 3 advogados especializados recebem sua demanda e falam com você." },
-  { title: "Escolha quem te atender", text: "Compare e converse à vontade antes de decidir com quem seguir." },
-];
 
 export default function LandingPage() {
   return (
     <main>
       <Hero />
+      <HowItWorks />
 
-      <section className="mx-auto max-w-5xl px-6 py-20">
-        <h2 className="mb-10 text-center text-2xl font-bold text-primary-900">
-          Como funciona
-        </h2>
-        <div className="grid gap-6 sm:grid-cols-3">
-          {STEPS.map((step, i) => (
-            <Card key={step.title}>
-              <span className="mb-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-50 text-sm font-bold text-accent-600">
-                {i + 1}
+      <section className="border-t border-border bg-background-secondary">
+        <div className="mx-auto max-w-shell px-4 py-16 sm:px-6">
+          <h2 className="mb-8 text-center text-h1 text-foreground">Áreas de atendimento</h2>
+          <div className="flex flex-wrap justify-center gap-2.5">
+            {Object.values(LEGAL_AREA_LABELS).map((label) => (
+              <span
+                key={label}
+                className="rounded-full border border-border-strong bg-surface px-4 py-2 text-small font-medium text-foreground-secondary transition-colors duration-150 hover:border-primary hover:text-primary"
+              >
+                {label}
               </span>
-              <h3 className="mb-1 font-semibold text-primary-900">{step.title}</h3>
-              <p className="text-sm text-slate-600">{step.text}</p>
-            </Card>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 pb-20">
-        <h2 className="mb-6 text-center text-2xl font-bold text-primary-900">
-          Áreas de atendimento
-        </h2>
-        <div className="flex flex-wrap justify-center gap-3">
-          {Object.values(LEGAL_AREA_LABELS).map((label) => (
-            <span
-              key={label}
-              className="rounded-full border border-primary-100 bg-white px-4 py-2 text-sm font-medium text-primary-700"
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      <section className="bg-primary-50 py-16">
-        <div className="mx-auto max-w-3xl px-6 text-center">
-          <h2 className="mb-2 text-xl font-bold text-primary-900">É advogado?</h2>
-          <p className="mb-6 text-slate-600">
-            Receba oportunidades de clientes reais na sua área de atuação.
-          </p>
-          <Link
-            href="/advogado/entrar"
-            className="font-semibold text-accent-600 underline underline-offset-4"
-          >
-            Acessar painel do advogado
-          </Link>
-        </div>
-      </section>
+      <LawyerCta />
     </main>
   );
 }

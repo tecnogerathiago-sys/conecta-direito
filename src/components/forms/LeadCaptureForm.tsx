@@ -8,6 +8,7 @@ import { createLeadSchema, CreateLeadInput } from "@/lib/validations";
 import { StepCaseDetails } from "@/components/forms/steps/StepCaseDetails";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Stepper } from "@/components/ui/Stepper";
 
 export function LeadCaptureForm() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export function LeadCaptureForm() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<CreateLeadInput>({
     resolver: zodResolver(createLeadSchema),
@@ -47,21 +49,25 @@ export function LeadCaptureForm() {
   }
 
   return (
-    <Card className="mx-auto w-full max-w-xl">
-      <h2 className="mb-1 text-lg font-bold text-primary-900">Sobre o seu caso</h2>
-      <p className="mb-6 text-sm text-slate-500">
-        Quanto mais detalhes, melhor a análise do seu caso pelos advogados.
-      </p>
+    <div className="mx-auto w-full max-w-xl">
+      <Stepper steps={["Dados pessoais", "Seu caso"]} currentStep={2} />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-        <StepCaseDetails register={register} errors={errors} />
+      <Card>
+        <h2 className="text-h3 text-foreground">Conte o que aconteceu</h2>
+        <p className="mb-6 mt-1 text-small text-foreground-secondary">
+          Quanto mais detalhes você fornecer, melhor poderemos encontrar profissionais adequados.
+        </p>
 
-        {submitError && <p className="text-sm font-medium text-red-500">{submitError}</p>}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+          <StepCaseDetails register={register} errors={errors} watch={watch} />
 
-        <Button type="submit" variant="success" disabled={isSubmitting}>
-          {isSubmitting ? "Enviando..." : "Enviar meu caso"}
-        </Button>
-      </form>
-    </Card>
+          {submitError && <p className="text-small font-medium text-destructive">{submitError}</p>}
+
+          <Button type="submit" variant="success" size="lg" isLoading={isSubmitting}>
+            Enviar meu caso
+          </Button>
+        </form>
+      </Card>
+    </div>
   );
 }

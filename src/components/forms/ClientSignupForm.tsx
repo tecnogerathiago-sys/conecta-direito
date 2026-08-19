@@ -9,6 +9,7 @@ import { clientSignupSchema, ClientSignupInput } from "@/lib/validations";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Stepper } from "@/components/ui/Stepper";
 
 interface Props {
   redirectTo: string;
@@ -62,62 +63,73 @@ export function ClientSignupForm({ redirectTo }: Props) {
   }
 
   return (
-    <Card className="mx-auto w-full max-w-xl">
-      <h2 className="mb-1 text-lg font-bold text-primary-900">Crie sua conta</h2>
-      <p className="mb-6 text-sm text-slate-500">
-        Leva menos de 2 minutos. Você usa essa conta pra acompanhar seus casos depois.
-      </p>
+    <div className="mx-auto w-full max-w-xl">
+      <Stepper steps={["Dados pessoais", "Seu caso"]} currentStep={1} />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-        <Input
-          label="Nome completo"
-          placeholder="Seu nome completo"
-          error={errors.fullName?.message}
-          {...register("fullName")}
-        />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="CPF"
-            placeholder="000.000.000-00"
-            error={errors.cpf?.message}
-            {...register("cpf")}
-          />
-          <Input
-            label="Data de nascimento"
-            type="date"
-            error={errors.birthDate?.message}
-            {...register("birthDate")}
-          />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Telefone / WhatsApp"
-            placeholder="(11) 91234-5678"
-            error={errors.phone?.message}
-            {...register("phone")}
-          />
-          <Input
-            label="E-mail"
-            type="email"
-            placeholder="voce@email.com"
-            error={errors.email?.message}
-            {...register("email")}
-          />
-        </div>
-        <Input
-          label="Senha"
-          type="password"
-          placeholder="Mínimo 8 caracteres"
-          error={errors.password?.message}
-          {...register("password")}
-        />
+      <Card>
+        <h2 className="text-h3 text-foreground">Seus dados</h2>
+        <p className="mb-6 mt-1 text-small text-foreground-secondary">
+          Precisamos apenas de algumas informações para conectar você a advogados.
+        </p>
 
-        {submitError && <p className="text-sm font-medium text-red-500">{submitError}</p>}
+        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+          <fieldset className="flex flex-col gap-4">
+            <legend className="mb-1 text-label font-medium text-foreground">Informações pessoais</legend>
+            <Input
+              label="Nome completo"
+              placeholder="Seu nome completo"
+              error={errors.fullName?.message}
+              {...register("fullName")}
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="CPF"
+                placeholder="000.000.000-00"
+                error={errors.cpf?.message}
+                {...register("cpf")}
+              />
+              <Input
+                label="Data de nascimento"
+                type="date"
+                error={errors.birthDate?.message}
+                {...register("birthDate")}
+              />
+            </div>
+          </fieldset>
 
-        <Button type="submit" variant="success" disabled={isSubmitting}>
-          {isSubmitting ? "Criando conta..." : "Criar conta e continuar"}
-        </Button>
-      </form>
-    </Card>
+          <fieldset className="flex flex-col gap-4 border-t border-border pt-5">
+            <legend className="mb-1 text-label font-medium text-foreground">Contato</legend>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                label="WhatsApp"
+                placeholder="(11) 91234-5678"
+                error={errors.phone?.message}
+                {...register("phone")}
+              />
+              <Input
+                label="E-mail"
+                type="email"
+                placeholder="voce@email.com"
+                error={errors.email?.message}
+                {...register("email")}
+              />
+            </div>
+            <Input
+              label="Senha"
+              type="password"
+              hint="Mínimo de 8 caracteres."
+              error={errors.password?.message}
+              {...register("password")}
+            />
+          </fieldset>
+
+          {submitError && <p className="text-small font-medium text-destructive">{submitError}</p>}
+
+          <Button type="submit" variant="success" size="lg" isLoading={isSubmitting}>
+            Continuar
+          </Button>
+        </form>
+      </Card>
+    </div>
   );
 }

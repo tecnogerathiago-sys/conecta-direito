@@ -14,15 +14,7 @@ export default async function SolicitarPage() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-muted px-6 py-16">
-      <div className="mx-auto mb-8 max-w-xl text-center">
-        <h1 className="text-2xl font-bold text-primary-900">
-          Encontre o advogado ideal para o seu caso
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Conte o que aconteceu. É totalmente gratuito.
-        </p>
-      </div>
+    <main className="min-h-screen bg-background px-4 py-12 sm:px-6 sm:py-16">
       <LeadCaptureForm />
     </main>
   );

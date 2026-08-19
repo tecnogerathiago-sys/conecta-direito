@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { Scale } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -36,10 +37,15 @@ export default function EntrarPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface-muted px-6">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <Card className="w-full max-w-sm">
-        <h1 className="mb-1 text-lg font-bold text-primary-900">Painel do advogado</h1>
-        <p className="mb-6 text-sm text-slate-500">Entre com seu e-mail e senha cadastrados.</p>
+        <span className="mb-4 flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <Scale className="size-5" aria-hidden />
+        </span>
+        <h1 className="text-h3 text-foreground">Painel do advogado</h1>
+        <p className="mb-6 mt-1 text-small text-foreground-secondary">
+          Entre com seu e-mail e senha cadastrados.
+        </p>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           <Input
@@ -56,9 +62,9 @@ export default function EntrarPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          {error && <p className="text-sm font-medium text-red-500">{error}</p>}
-          <Button type="submit" variant="primary" fullWidth disabled={isSubmitting}>
-            {isSubmitting ? "Entrando..." : "Entrar"}
+          {error && <p className="text-small font-medium text-destructive">{error}</p>}
+          <Button type="submit" variant="primary" fullWidth isLoading={isSubmitting}>
+            Entrar
           </Button>
         </form>
       </Card>

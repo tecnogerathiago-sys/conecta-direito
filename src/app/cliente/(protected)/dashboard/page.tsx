@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import { FolderOpen, Plus } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ClientCaseCard } from "@/components/dashboard/ClientCaseCard";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 export default async function ClienteDashboardPage() {
   const session = await getServerSession(authOptions);
@@ -18,24 +21,32 @@ export default async function ClienteDashboardPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-primary-900">Meus casos</h1>
-          <p className="text-sm text-slate-500">Acompanhe o andamento de tudo que você enviou.</p>
-        </div>
-        <Link href="/solicitar">
-          <Button variant="success">Abrir novo caso</Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="Meus casos"
+        description="Acompanhe o andamento de tudo que você enviou."
+        actions={
+          <Link href="/solicitar">
+            <Button variant="success" size="sm">
+              <Plus className="size-4" aria-hidden />
+              Abrir novo caso
+            </Button>
+          </Link>
+        }
+      />
 
       {cases.length === 0 ? (
-        <p className="text-sm text-slate-500">
-          Você ainda não abriu nenhum caso.{" "}
-          <Link href="/solicitar" className="font-semibold text-accent-600 underline underline-offset-4">
-            Comece agora
-          </Link>
-          .
-        </p>
+        <EmptyState
+          icon={FolderOpen}
+          title="Você ainda não abriu nenhum caso"
+          description="Conte o que aconteceu e receba contato de advogados especializados."
+          action={
+            <Link href="/solicitar">
+              <Button variant="primary" size="sm">
+                Abrir meu primeiro caso
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {cases.map((c) => (

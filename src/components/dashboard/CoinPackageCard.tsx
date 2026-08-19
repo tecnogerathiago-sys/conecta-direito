@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Card } from "@/components/ui/Card";
+import { Check } from "lucide-react";
+import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { PAYMENTS_ENABLED } from "@/lib/constants";
+import { formatBRL } from "@/lib/format";
 
 interface Props {
   id: string;
@@ -13,11 +15,23 @@ interface Props {
   bonusCoins: number;
   totalCoins: number;
   priceBRL: number;
+  recommended?: boolean;
+  savingsPercent?: number;
 }
 
-export function CoinPackageCard({ id, name, coinAmount, bonusCoins, totalCoins, priceBRL }: Props) {
+export function CoinPackageCard({
+  id,
+  name,
+  coinAmount,
+  bonusCoins,
+  totalCoins,
+  priceBRL,
+  recommended,
+  savingsPercent,
+}: Props) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pricePerCoin = priceBRL / totalCoins;
 
   async function handleBuy() {
     setError(null);
@@ -37,38 +51,65 @@ export function CoinPackageCard({ id, name, coinAmount, bonusCoins, totalCoins, 
   }
 
   return (
-    <Card className="flex flex-col items-center gap-3 text-center">
-      {bonusCoins > 0 && <Badge tone="accent">+{bonusCoins} de bônus</Badge>}
-      <h3 className="text-base font-bold text-primary-900">{name}</h3>
-      <p className="text-3xl font-extrabold text-accent-600">
-        {totalCoins}
-        <span className="ml-1 text-sm font-medium text-slate-500">moedas</span>
-      </p>
-      {bonusCoins > 0 && (
-        <p className="text-xs text-slate-500">
-          {coinAmount} base + {bonusCoins} bônus
-        </p>
+    <div
+      className={clsx(
+        "relative flex flex-col gap-4 rounded-lg border bg-surface p-5",
+        recommended ? "border-primary shadow-md" : "border-border shadow-xs"
       )}
-      <p className="text-lg font-semibold text-primary-900">
-        {priceBRL.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-      </p>
+    >
+      {recommended && (
+        <span className="absolute -top-3 left-5 rounded-sm bg-primary px-2 py-0.5 text-caption font-semibold text-primary-foreground">
+          Recomendado
+        </span>
+      )}
+
+      <div>
+        <h3 className="text-h3 text-foreground">{name}</h3>
+        {bonusCoins > 0 && (
+          <p className="mt-0.5 flex items-center gap-1 text-small text-success">
+            <Check className="size-3.5" aria-hidden />
+            {coinAmount} + {bonusCoins} moedas de bônus
+          </p>
+        )}
+      </div>
+
+      <div>
+        <p className="text-display leading-none text-foreground">{totalCoins}</p>
+        <p className="mt-1 text-small text-foreground-muted">moedas</p>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <p className="text-h2 text-foreground">{formatBRL(priceBRL)}</p>
+        <div className="mt-1 flex items-center gap-2 text-small text-foreground-secondary">
+          <span>{formatBRL(pricePerCoin)} / moeda</span>
+          {savingsPercent ? (
+            <Badge tone="success">Economize {savingsPercent}%</Badge>
+          ) : null}
+        </div>
+      </div>
+
       {PAYMENTS_ENABLED ? (
         <>
-          <Button variant="accent" fullWidth onClick={handleBuy} disabled={isRedirecting}>
-            {isRedirecting ? "Redirecionando..." : "Comprar"}
+          <Button
+            variant={recommended ? "primary" : "outline"}
+            fullWidth
+            onClick={handleBuy}
+            isLoading={isRedirecting}
+          >
+            Comprar moedas
           </Button>
-          {error && <p className="text-xs font-medium text-red-500">{error}</p>}
+          {error && <p className="text-small text-destructive">{error}</p>}
         </>
       ) : (
         <>
           <Button variant="outline" fullWidth disabled>
             Em breve
           </Button>
-          <p className="text-xs text-slate-500">
+          <p className="text-caption text-foreground-muted">
             Pagamentos chegando em breve. Fale com a gente para liberar moedas manualmente.
           </p>
         </>
       )}
-    </Card>
+    </div>
   );
 }

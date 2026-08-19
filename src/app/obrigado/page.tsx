@@ -1,24 +1,25 @@
 import Link from "next/link";
+import { CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
 import { MAX_UNLOCKS_PER_LEAD } from "@/lib/constants";
 
 export default function ObrigadoPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface-muted px-6 py-16">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       <Card className="max-w-md text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-50 text-success text-2xl">
-          ✓
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-success-subtle text-success">
+          <CheckCircle2 className="size-6" aria-hidden />
         </div>
-        <h1 className="mb-2 text-xl font-bold text-primary-900">Recebemos seu pedido!</h1>
-        <p className="mb-6 text-sm text-slate-600">
-          Em breve, até {MAX_UNLOCKS_PER_LEAD} advogados especializados no seu caso vão
-          entrar em contato pelo telefone ou e-mail informado. Fique atento!
+        <h1 className="text-h2 text-foreground">Caso enviado com sucesso</h1>
+        <p className="mb-6 mt-2 text-body text-foreground-secondary">
+          Em breve, até {MAX_UNLOCKS_PER_LEAD} advogados especializados no seu caso vão entrar em
+          contato pelo telefone ou e-mail informado. Fique atento!
         </p>
-        <Link
-          href="/cliente/dashboard"
-          className="font-semibold text-accent-600 underline underline-offset-4"
-        >
-          Acompanhar meus casos
+        <Link href="/cliente/dashboard">
+          <Button variant="primary" fullWidth>
+            Acompanhar meus casos
+          </Button>
         </Link>
       </Card>
     </main>

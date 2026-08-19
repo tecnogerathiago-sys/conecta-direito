@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { Coins } from "lucide-react";
 
 export function CoinBalance({ balance }: { balance: number }) {
   return (
     <Link
       href="/advogado/carteira"
-      className="flex items-center gap-1.5 rounded-full bg-accent-50 px-3.5 py-1.5 text-sm font-semibold text-accent-600 hover:bg-accent-100"
+      className="flex items-center gap-2 rounded-md bg-accent-subtle px-3 py-1.5 text-small font-semibold text-accent transition-colors duration-150 hover:bg-accent-subtle/70"
     >
-      <span aria-hidden>🪙</span>
+      <Coins className="size-4" aria-hidden />
       {balance.toLocaleString("pt-BR")} moedas
     </Link>
   );

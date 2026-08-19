@@ -8,6 +8,7 @@ export type PublicLead = Pick<
   Lead,
   "id" | "legalArea" | "urgency" | "city" | "state" | "status" | "coinCost" | "createdAt"
 > & {
+  title: string;
   descriptionPreview: string;
 };
 
@@ -46,7 +47,8 @@ export function toPublicLead(lead: Lead): PublicLead {
     status: lead.status,
     coinCost: lead.coinCost,
     createdAt: lead.createdAt,
-    descriptionPreview: truncate(lead.description, 140),
+    title: truncate(lead.description, 90),
+    descriptionPreview: truncate(lead.description, 220),
   };
 }
 
