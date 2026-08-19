@@ -4,12 +4,16 @@ import Link from "next/link";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { CoinBalance } from "@/components/dashboard/CoinBalance";
+import { LogoutButton } from "@/components/ui/LogoutButton";
 
 export default async function AdvogadoLayout({ children }: { children: React.ReactNode }) {
   const session = await getServerSession(authOptions);
 
   if (!session?.user) {
     redirect("/advogado/entrar");
+  }
+  if (session.user.role !== "LAWYER") {
+    redirect("/");
   }
 
   const lawyer = await prisma.user.findUnique({
@@ -39,6 +43,7 @@ export default async function AdvogadoLayout({ children }: { children: React.Rea
           <div className="flex items-center gap-4">
             <CoinBalance balance={lawyer.coinBalance} />
             <span className="text-sm font-medium text-primary-900">{lawyer.name}</span>
+            <LogoutButton />
           </div>
         </div>
       </header>

@@ -54,7 +54,7 @@ export default function LandingPage() {
             Receba oportunidades de clientes reais na sua área de atuação.
           </p>
           <Link
-            href="/advogado/dashboard"
+            href="/advogado/entrar"
             className="font-semibold text-accent-600 underline underline-offset-4"
           >
             Acessar painel do advogado

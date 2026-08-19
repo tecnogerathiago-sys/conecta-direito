@@ -14,8 +14,11 @@ export default function ObrigadoPage() {
           Em breve, até {MAX_UNLOCKS_PER_LEAD} advogados especializados no seu caso vão
           entrar em contato pelo telefone ou e-mail informado. Fique atento!
         </p>
-        <Link href="/" className="font-semibold text-accent-600 underline underline-offset-4">
-          Voltar para a página inicial
+        <Link
+          href="/cliente/dashboard"
+          className="font-semibold text-accent-600 underline underline-offset-4"
+        >
+          Acompanhar meus casos
         </Link>
       </Card>
     </main>

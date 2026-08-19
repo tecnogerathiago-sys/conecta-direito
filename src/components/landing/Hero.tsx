@@ -20,6 +20,9 @@ export function Hero() {
             Encontrar meu advogado agora
           </Button>
         </Link>
+        <Link href="/cliente/entrar" className="text-sm font-medium text-primary-100 underline underline-offset-4 hover:text-white">
+          Já enviei um caso — acompanhar status
+        </Link>
       </div>
     </section>
   );

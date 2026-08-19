@@ -16,6 +16,7 @@ datasource db {
 // ------------------------------------------------------------
 
 enum UserRole {
+  CLIENT
   LAWYER
   ADMIN
 }
@@ -59,26 +60,30 @@ enum PaymentStatus {
 }
 
 // ------------------------------------------------------------
-// Users (Advogados e Admins)
+// Users (Clientes, Advogados e Admins)
 // ------------------------------------------------------------
 
 model User {
   id           String   @id @default(cuid())
-  role         UserRole @default(LAWYER)
+  role         UserRole
 
   name         String
   email        String   @unique
   passwordHash String
+  phone        String?
+
+  // Dados específicos de cliente
+  cpf          String?   @unique
+  birthDate    DateTime?
 
   // Dados específicos de advogado
   oabNumber    String?  @unique
   oabState     String? // UF de registro na OAB, ex: "SP"
-  phone        String?
 
   areasOfPractice LegalArea[] @default([])
   activeRegions   String[]    @default([]) // cidades/UFs em que atua
 
-  coinBalance  Int      @default(0) // saldo atual de moedas
+  coinBalance  Int      @default(0) // saldo atual de moedas (só relevante para advogados)
 
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
@@ -86,6 +91,7 @@ model User {
 
   unlocks      LeadUnlock[]
   transactions Transaction[]
+  leads        Lead[] // casos abertos por este usuário, quando role = CLIENT
 
   @@index([role])
   @@map("users")
@@ -97,6 +103,13 @@ model User {
 
 model Lead {
   id          String     @id @default(cuid())
+
+  // Conta do cliente que abriu o caso (para o painel "meus casos").
+  // Os campos abaixo continuam duplicados no Lead de propósito: são um
+  // retrato do caso no momento do envio, independente de mudanças futuras
+  // na conta do cliente.
+  clientId    String?
+  client      User?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   // Dados sensíveis do cliente — NUNCA expor via API pública
   // sem antes validar um LeadUnlock correspondente.
@@ -124,6 +137,7 @@ model Lead {
 
   @@index([status])
   @@index([legalArea, city])
+  @@index([clientId])
   @@map("leads")
 }
 
