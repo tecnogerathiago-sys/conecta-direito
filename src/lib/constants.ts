@@ -31,6 +31,7 @@ export const BRAZILIAN_STATES = [
 // enquanto houver vaga.
 export const MAX_INTERESTS_PER_LEAD = 5;
 
-// Desligado até um gateway de pagamento real (Pix/cartão) ser integrado.
-// Ver README.md > "O que ainda é stub". Quando integrar, ligue esta flag.
-export const PAYMENTS_ENABLED = false;
+// Integração com o Mercado Pago (assinaturas recorrentes) ligada — hoje
+// usando credenciais TEST-, então nenhuma cobrança real é processada.
+// Trocar pelas credenciais de produção antes de operar com usuários reais.
+export const PAYMENTS_ENABLED = true;
