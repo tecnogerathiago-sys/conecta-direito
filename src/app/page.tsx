@@ -1,6 +1,7 @@
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LawyerCta } from "@/components/landing/LawyerCta";
+import { SupportContact } from "@/components/landing/SupportContact";
 import { WrongAccountBanner } from "@/components/landing/WrongAccountBanner";
 import { LEGAL_AREA_LABELS } from "@/lib/constants";
 
@@ -28,6 +29,7 @@ export default function LandingPage() {
       </section>
 
       <LawyerCta />
+      <SupportContact />
 
       <footer className="border-t border-border px-4 py-8 sm:px-6">
         <p className="mx-auto max-w-shell text-center text-caption text-foreground-muted">
