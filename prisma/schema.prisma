@@ -1,0 +1,207 @@
+// ==========================================================
+// Conecta Direito — Schema do banco de dados
+// ==========================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// Enums
+// ------------------------------------------------------------
+
+enum UserRole {
+  LAWYER
+  ADMIN
+}
+
+enum LegalArea {
+  TRABALHISTA
+  FAMILIA
+  CONSUMIDOR
+  CIVEL
+  CRIMINAL
+  EMPRESARIAL
+  PREVIDENCIARIO
+  TRIBUTARIO
+  OUTROS
+}
+
+enum Urgency {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum LeadStatus {
+  OPEN // ainda pode ser desbloqueado por novos advogados
+  CLOSED // atingiu o limite de desbloqueios (maxUnlocks)
+  EXPIRED // ficou muito tempo sem desbloqueios / cancelado
+}
+
+enum TransactionType {
+  PURCHASE // compra de pacote de moedas
+  UNLOCK_SPEND // gasto de moedas para desbloquear um lead
+  REFUND // estorno de moedas (ex: lead inválido)
+  BONUS // moedas de bônus (promoções, indicação)
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+// ------------------------------------------------------------
+// Users (Advogados e Admins)
+// ------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  role         UserRole @default(LAWYER)
+
+  name         String
+  email        String   @unique
+  passwordHash String
+
+  // Dados específicos de advogado
+  oabNumber    String?  @unique
+  oabState     String? // UF de registro na OAB, ex: "SP"
+  phone        String?
+
+  areasOfPractice LegalArea[] @default([])
+  activeRegions   String[]    @default([]) // cidades/UFs em que atua
+
+  coinBalance  Int      @default(0) // saldo atual de moedas
+
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  unlocks      LeadUnlock[]
+  transactions Transaction[]
+
+  @@index([role])
+  @@map("users")
+}
+
+// ------------------------------------------------------------
+// Leads (Demandas cadastradas pelos clientes)
+// ------------------------------------------------------------
+
+model Lead {
+  id          String     @id @default(cuid())
+
+  // Dados sensíveis do cliente — NUNCA expor via API pública
+  // sem antes validar um LeadUnlock correspondente.
+  fullName    String
+  cpf         String
+  birthDate   DateTime
+  phone       String
+  email       String
+
+  // Detalhes da causa — podem ser exibidos publicamente (resumo)
+  legalArea   LegalArea
+  description String
+  urgency     Urgency
+  city        String
+  state       String
+
+  status      LeadStatus @default(OPEN)
+  maxUnlocks  Int        @default(3) // limite de advogados que podem desbloquear
+  coinCost    Int // custo em moedas para desbloquear, calculado em lib/pricing.ts
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  unlocks     LeadUnlock[]
+
+  @@index([status])
+  @@index([legalArea, city])
+  @@map("leads")
+}
+
+// ------------------------------------------------------------
+// LeadUnlocks (registro de quem desbloqueou qual lead)
+// ------------------------------------------------------------
+
+model LeadUnlock {
+  id         String   @id @default(cuid())
+
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  lawyerId   String
+  lawyer     User     @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+
+  coinsSpent Int
+  unlockedAt DateTime @default(now())
+
+  // Um mesmo advogado não pode desbloquear o mesmo lead duas vezes
+  @@unique([leadId, lawyerId])
+  @@index([lawyerId])
+  @@map("lead_unlocks")
+}
+
+// ------------------------------------------------------------
+// Transactions (histórico de compra de moedas e gastos)
+// ------------------------------------------------------------
+
+model Transaction {
+  id                String          @id @default(cuid())
+
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type              TransactionType
+
+  // Positivo para créditos (compra, bônus, estorno), negativo para gastos (unlock)
+  coinAmount        Int
+
+  // Preenchido apenas em transações de compra (PURCHASE)
+  amountBRL         Decimal?        @db.Decimal(10, 2)
+  coinPackageId     String?
+  coinPackage       CoinPackage?    @relation(fields: [coinPackageId], references: [id])
+
+  paymentStatus     PaymentStatus?  // relevante apenas para PURCHASE
+  paymentProvider   String? // ex: "pix", "credit_card"
+  externalPaymentId String? // id da transação no gateway de pagamento
+
+  // Referência ao desbloqueio, quando type = UNLOCK_SPEND
+  leadUnlockId      String?
+
+  createdAt         DateTime        @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@map("transactions")
+}
+
+// ------------------------------------------------------------
+// CoinPackages (pacotes de moedas disponíveis na loja)
+// ------------------------------------------------------------
+
+model CoinPackage {
+  id           String   @id @default(cuid())
+
+  name         String // "Starter", "Pro", "Premium"
+  coinAmount   Int // moedas base do pacote
+  bonusCoins   Int      @default(0) // moedas extras de bônus
+  priceBRL     Decimal  @db.Decimal(10, 2)
+
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@map("coin_packages")
+}
