@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -7,7 +8,8 @@ import { totalCoinsForPackage } from "@/lib/pricing";
 
 export default async function CarteiraPage() {
   const session = await getServerSession(authOptions);
-  const lawyerId = session!.user.id;
+  if (!session?.user) redirect("/advogado/entrar");
+  const lawyerId = session.user.id;
 
   const [packages, recentTransactions] = await Promise.all([
     prisma.coinPackage.findMany({

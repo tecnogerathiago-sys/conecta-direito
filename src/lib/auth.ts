@@ -3,6 +3,15 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+// Mutar process.env no next.config.js só afeta o processo de build — cada
+// invocação de função serverless na Vercel roda em um processo novo que não
+// herda isso. Por isso o fallback precisa rodar aqui também, em runtime,
+// antes do NextAuth tentar ler NEXTAUTH_URL (o que ele faz internamente ao
+// montar a URL base via `new URL(...)`, quebrando com string vazia).
+if (!process.env.NEXTAUTH_URL && process.env.VERCEL_URL) {
+  process.env.NEXTAUTH_URL = `https://${process.env.VERCEL_URL}`;
+}
+
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
   pages: { signIn: "/advogado/entrar" },
