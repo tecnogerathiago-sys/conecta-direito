@@ -1,18 +1,28 @@
 # Conecta Direito
 
-Marketplace jurídico (estilo GetNinjas) que conecta clientes a advogados via sistema de moedas.
+Plataforma que conecta clientes a advogados. O advogado assina um plano
+mensal para ter acesso à plataforma e manifestar interesse em causas — não
+paga por lead individual. O contato do cliente só é revelado a um advogado
+específico depois que o próprio cliente aceita explicitamente.
+
+> Esse modelo (assinatura + consentimento do cliente, em vez de pagar por
+> contato) existe para reduzir o risco de enquadramento como captação de
+> clientela / mercantilização da advocacia (art. 39+ do Código de Ética da
+> OAB, Provimento 205/2021 do CFOAB). **Isto não é parecer jurídico** — antes
+> de operar em produção, valide o modelo e os textos da plataforma (termos de
+> uso, copy) com um advogado especializado em direito da advocacia.
 
 ## Stack
 
-Next.js 14 (App Router) + TypeScript + Prisma + PostgreSQL + Tailwind CSS + NextAuth (Credentials).
+Next.js 14 (App Router) + TypeScript + Prisma + PostgreSQL + Tailwind CSS + NextAuth (Credentials) + Vitest.
 
 ## Estrutura de pastas
 
 ```
 conecta-direito/
   prisma/
-    schema.prisma        # Users, Leads, LeadUnlocks, Transactions, CoinPackages
-    seed.ts               # dados de demonstração (1 advogado + 3 leads + 3 pacotes)
+    schema.prisma        # Users, Leads, InterestManifestations, Subscriptions, Notifications
+    seed.ts               # dados de demonstração (1 advogado com assinatura ativa + 3 leads)
   src/
     app/
       page.tsx             # landing page
@@ -20,39 +30,47 @@ conecta-direito/
       obrigado/             # confirmação
       advogado/
         entrar/              # login do advogado
-        layout.tsx            # gate de autenticação + header com saldo
-        dashboard/             # mural de oportunidades (feed de leads)
-        carteira/               # loja de moedas + histórico
+        (protected)/
+          layout.tsx           # gate de autenticação + header com badge do plano
+          dashboard/            # mural de causas (anônimas) + manifestar interesse
+          assinatura/            # planos, status da assinatura, histórico
+      cliente/
+        entrar/, cadastrar/
+        (protected)/
+          dashboard/            # "Meus casos" + advogados interessados (aceitar/recusar)
       api/
-        leads/                   # POST cria lead
-        leads/[id]/unlock/        # POST desbloqueia contato (transação atômica)
-        coin-packages/[id]/checkout/  # inicia compra (stub de gateway)
-        payments/webhook/              # confirma pagamento e credita moedas
-        auth/[...nextauth]/              # NextAuth
+        leads/                   # POST cria lead (causa)
+        leads/[id]/interest/      # POST advogado manifesta interesse (exige assinatura ativa)
+        interests/[id]/respond/    # POST cliente aceita/recusa liberar contato
+        subscriptions/checkout/     # inicia assinatura (stub de gateway)
+        payments/webhook/            # confirma pagamento e ativa/renova assinatura
+        auth/[...nextauth]/            # NextAuth
     components/
-      landing/, forms/, dashboard/, ui/, providers/
+      landing/, forms/, dashboard/, ui/, shell/, providers/
     lib/
-      prisma.ts     # client singleton
-      auth.ts       # NextAuthOptions (Credentials + bcrypt)
-      pricing.ts    # cálculo de custo em moedas por área/urgência
-      masking.ts     # PublicLead (mascarado) vs UnlockedLead (completo)
-      validations.ts  # schemas Zod do formulário
-      constants.ts     # labels de áreas, urgência, UFs
+      prisma.ts        # client singleton
+      auth.ts          # NextAuthOptions (Credentials + bcrypt)
+      subscriptions.ts  # catálogo de planos (Básico/Pro)
+      masking.ts         # PublicLead (anônimo) vs ReleasedContact (completo)
+      services/
+        interests.ts       # regra de negócio de manifestar interesse / responder — com testes
+      validations.ts   # schemas Zod do formulário
+      constants.ts      # labels de áreas, urgência, UFs
     types/
       next-auth.d.ts   # augmentação de tipos da sessão
 ```
 
 ## Modelagem do banco (resumo)
 
-- **User** — advogados (e admins), com `coinBalance`, OAB, áreas/regiões de atuação.
-- **Lead** — demanda do cliente. Contém dados sensíveis (`fullName`, `cpf`, `phone`, `email`) que **nunca** devem sair da camada de API sem passar por `lib/masking.ts`.
-- **LeadUnlock** — registro único por `(leadId, lawyerId)`; é a prova de que o advogado pagou para ver os dados daquele lead. `Lead.maxUnlocks` (padrão 3) limita a concorrência.
-- **Transaction** — histórico de moedas: compras (`PURCHASE`), gastos (`UNLOCK_SPEND`), estornos e bônus.
-- **CoinPackage** — pacotes vendidos na loja (Starter/Pro/Premium).
+- **User** — clientes, advogados e admins. Advogado tem OAB, áreas/regiões de atuação e um histórico de `Subscription`.
+- **Lead** — causa cadastrada pelo cliente. Contém dados sensíveis (`fullName`, `cpf`, `phone`, `email`) que **nunca** devem sair da camada de API sem passar por `lib/masking.ts`. Identificada publicamente só por um código anônimo (`caseCodeFor()`, ex: "Caso #A1B2C3").
+- **InterestManifestation** — registro de um advogado manifestando interesse numa causa. `status` (`PENDING`/`ACCEPTED`/`DECLINED`) e `contactReleasedAt` (nulo até o cliente aceitar) vivem aqui — por advogado, não por causa, já que causas diferentes podem ter respostas diferentes para advogados diferentes. `Lead.maxInterests` (padrão 5) limita quantos advogados podem manifestar interesse na mesma causa.
+- **Subscription** — histórico de assinaturas do advogado (`PENDING` → `ACTIVE` → `PAST_DUE`/`CANCELED`). Acesso ao mural e à ação de manifestar interesse depende de existir uma `Subscription` com `status = ACTIVE`.
+- **Notification** — eventos in-app (interesse manifestado, contato aceito/recusado). Sem envio de e-mail/SMS ainda — ver "o que falta" abaixo.
 
 ### LGPD / privacidade
 
-`toPublicLead()` em `lib/masking.ts` é o único formato que pode trafegar na listagem pública/feed — remove nome, CPF, telefone e e-mail, e trunca a descrição. Os dados completos só existem em `toUnlockedLead()`, chamado depois que a rota `POST /api/leads/[id]/unlock` confirma o desbloqueio dentro de uma transação `Serializable` (evita que mais advogados que `maxUnlocks` consigam desbloquear em condição de corrida).
+`toPublicLead()` em `lib/masking.ts` é o único formato que pode trafegar na listagem pública/feed — remove nome, CPF, telefone e e-mail, reduz a causa a um código anônimo + resumo. Os dados completos só existem via `toReleasedContact()`, chamado quando a `InterestManifestation` do advogado tem `contactReleasedAt` preenchido — o que só acontece através de `POST /api/interests/[id]/respond` quando o **cliente** aceita, nunca automaticamente e nunca por pagamento do advogado.
 
 ## Rodando localmente
 
@@ -62,13 +80,15 @@ cp .env.example .env   # preencha DATABASE_URL e NEXTAUTH_SECRET
 npx prisma migrate dev --name init
 npx prisma db seed
 npm run dev
+npm test                # roda a suíte Vitest (lib/services/interests.test.ts)
 ```
 
-Login de demonstração (advogado): `advogado.demo@conectadireito.com.br` / `senha123`.
+Login de demonstração (advogado, já com assinatura ativa): `advogado.demo@conectadireito.com.br` / `senha123`.
 
 ## O que ainda é stub / próximos passos
 
-- **Gateway de pagamento**: `POST /api/coin-packages/[id]/checkout` cria a `Transaction` como `PENDING` e devolve uma `paymentUrl` fake. É preciso trocar pelo SDK real (Pix/Mercado Pago/Pagar.me/Stripe) e validar a assinatura em `POST /api/payments/webhook` usando `PAYMENT_PROVIDER_WEBHOOK_SECRET`.
+- **Gateway de pagamento recorrente**: `POST /api/subscriptions/checkout` cria a `Subscription` como `PENDING` e devolve uma `paymentUrl` fake. É preciso trocar pela criação real de uma assinatura recorrente (ex: preapproval do Mercado Pago) e validar a assinatura do webhook em `POST /api/payments/webhook` usando `PAYMENT_PROVIDER_WEBHOOK_SECRET`.
+- **Notificação por e-mail/SMS**: hoje `Notification` é só in-app (aparece dentro do painel). O cliente só sabe que um advogado manifestou interesse ao entrar no site — falta plugar um serviço de e-mail/SMS que dispare a partir da criação de cada `Notification`.
 - **Cadastro de advogado com validação de OAB**: hoje só existe login; falta a tela de cadastro (dados pessoais + nº OAB + áreas/regiões) e, idealmente, uma verificação externa do registro na OAB.
-- **Painel admin**: aprovar leads, gerenciar `CoinPackage`, moderar advogados.
-- **Notificação ao cliente**: hoje o cliente só vê a tela de confirmação; falta o envio de e-mail/WhatsApp quando um advogado desbloqueia o lead.
+- **Painel admin**: aprovar/moderar causas e advogados, gerenciar assinaturas manualmente.
+- **Termos de uso / política de privacidade**: a landing tem um aviso curto no rodapé, mas não existe uma página formal de Termos ainda — precisa ser redigida (ou revisada) por advogado especializado antes de operar com usuários reais.

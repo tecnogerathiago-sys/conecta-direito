@@ -8,25 +8,10 @@ interface Props {
   defaultKeyword?: string;
   defaultArea?: string;
   defaultUrgency?: string;
-  defaultMaxCoins?: string;
 }
 
-const COIN_CAPS = [
-  { value: "30", label: "Até 30 moedas" },
-  { value: "50", label: "Até 50 moedas" },
-  { value: "70", label: "Até 70 moedas" },
-];
-
-export function FilterBar({
-  defaultLocation,
-  defaultKeyword,
-  defaultArea,
-  defaultUrgency,
-  defaultMaxCoins,
-}: Props) {
-  const hasActiveFilters = Boolean(
-    defaultLocation || defaultKeyword || defaultArea || defaultUrgency || defaultMaxCoins
-  );
+export function FilterBar({ defaultLocation, defaultKeyword, defaultArea, defaultUrgency }: Props) {
+  const hasActiveFilters = Boolean(defaultLocation || defaultKeyword || defaultArea || defaultUrgency);
 
   return (
     <form
@@ -96,25 +81,6 @@ export function FilterBar({
             {Object.values(Urgency).map((u) => (
               <option key={u} value={u}>
                 {URGENCY_LABELS[u]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="filter-moedas" className="text-label text-foreground-secondary">
-            Faixa de moedas
-          </label>
-          <select
-            id="filter-moedas"
-            name="moedas"
-            defaultValue={defaultMaxCoins ?? ""}
-            className="h-10 w-40 rounded-md border border-border-strong bg-surface px-3 text-small text-foreground transition-colors duration-150 hover:border-foreground-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:border-primary"
-          >
-            <option value="">Qualquer valor</option>
-            {COIN_CAPS.map((cap) => (
-              <option key={cap.value} value={cap.value}>
-                {cap.label}
               </option>
             ))}
           </select>

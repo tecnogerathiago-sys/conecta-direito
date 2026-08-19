@@ -4,43 +4,35 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { PAYMENTS_ENABLED } from "@/lib/constants";
 import { formatBRL } from "@/lib/format";
+import type { SubscriptionPlan } from "@prisma/client";
 
 interface Props {
-  id: string;
+  plan: SubscriptionPlan;
   name: string;
-  coinAmount: number;
-  bonusCoins: number;
-  totalCoins: number;
   priceBRL: number;
+  features: string[];
   recommended?: boolean;
-  savingsPercent?: number;
+  isCurrentPlan?: boolean;
 }
 
-export function CoinPackageCard({
-  id,
-  name,
-  coinAmount,
-  bonusCoins,
-  totalCoins,
-  priceBRL,
-  recommended,
-  savingsPercent,
-}: Props) {
+export function PlanCard({ plan, name, priceBRL, features, recommended, isCurrentPlan }: Props) {
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pricePerCoin = priceBRL / totalCoins;
 
-  async function handleBuy() {
+  async function handleSubscribe() {
     setError(null);
     setIsRedirecting(true);
     try {
-      const res = await fetch(`/api/coin-packages/${id}/checkout`, { method: "POST" });
+      const res = await fetch("/api/subscriptions/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
       const body = await res.json();
 
-      if (!res.ok) throw new Error(body?.error ?? "Não foi possível iniciar a compra.");
+      if (!res.ok) throw new Error(body?.error ?? "Não foi possível iniciar a assinatura.");
 
       // Em produção, body.paymentUrl aponta para o checkout do gateway (Pix / Cartão).
       window.location.href = body.paymentUrl;
@@ -65,38 +57,36 @@ export function CoinPackageCard({
 
       <div>
         <h3 className="text-h3 text-foreground">{name}</h3>
-        {bonusCoins > 0 && (
-          <p className="mt-0.5 flex items-center gap-1 text-small text-success">
-            <Check className="size-3.5" aria-hidden />
-            {coinAmount} + {bonusCoins} moedas de bônus
-          </p>
-        )}
+        <p className="mt-1 text-caption text-foreground-muted">Assinatura mensal</p>
       </div>
 
       <div>
-        <p className="text-display leading-none text-foreground">{totalCoins}</p>
-        <p className="mt-1 text-small text-foreground-muted">moedas</p>
+        <p className="text-h1 leading-none text-foreground">{formatBRL(priceBRL)}</p>
+        <p className="mt-1 text-small text-foreground-muted">por mês</p>
       </div>
 
-      <div className="border-t border-border pt-4">
-        <p className="text-h2 text-foreground">{formatBRL(priceBRL)}</p>
-        <div className="mt-1 flex items-center gap-2 text-small text-foreground-secondary">
-          <span>{formatBRL(pricePerCoin)} / moeda</span>
-          {savingsPercent ? (
-            <Badge tone="success">Economize {savingsPercent}%</Badge>
-          ) : null}
-        </div>
-      </div>
+      <ul className="flex flex-col gap-2 border-t border-border pt-4">
+        {features.map((feature) => (
+          <li key={feature} className="flex items-start gap-2 text-small text-foreground-secondary">
+            <Check className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+            {feature}
+          </li>
+        ))}
+      </ul>
 
-      {PAYMENTS_ENABLED ? (
+      {isCurrentPlan ? (
+        <Button variant="outline" fullWidth disabled>
+          Plano atual
+        </Button>
+      ) : PAYMENTS_ENABLED ? (
         <>
           <Button
             variant={recommended ? "primary" : "outline"}
             fullWidth
-            onClick={handleBuy}
+            onClick={handleSubscribe}
             isLoading={isRedirecting}
           >
-            Comprar moedas
+            Assinar plano {name}
           </Button>
           {error && <p className="text-small text-destructive">{error}</p>}
         </>
@@ -106,7 +96,7 @@ export function CoinPackageCard({
             Em breve
           </Button>
           <p className="text-caption text-foreground-muted">
-            Pagamentos chegando em breve. Fale com a gente para liberar moedas manualmente.
+            Pagamentos recorrentes chegando em breve. Fale com a gente para liberar acesso manualmente.
           </p>
         </>
       )}

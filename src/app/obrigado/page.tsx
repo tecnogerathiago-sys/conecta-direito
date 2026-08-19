@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { MAX_UNLOCKS_PER_LEAD } from "@/lib/constants";
+import { MAX_INTERESTS_PER_LEAD } from "@/lib/constants";
 
 export default function ObrigadoPage() {
   return (
@@ -13,8 +13,9 @@ export default function ObrigadoPage() {
         </div>
         <h1 className="text-h2 text-foreground">Caso enviado com sucesso</h1>
         <p className="mb-6 mt-2 text-body text-foreground-secondary">
-          Em breve, até {MAX_UNLOCKS_PER_LEAD} advogados especializados no seu caso vão entrar em
-          contato pelo telefone ou e-mail informado. Fique atento!
+          Seu caso já está visível, de forma anônima, para advogados especializados na área — até{" "}
+          {MAX_INTERESTS_PER_LEAD} podem manifestar interesse. Você vai poder ver o perfil de cada
+          um e decidir se libera seu contato. A decisão de contratar é sempre sua.
         </p>
         <Link href="/cliente/dashboard">
           <Button variant="primary" fullWidth>

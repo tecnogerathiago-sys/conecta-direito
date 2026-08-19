@@ -25,8 +25,11 @@ export const BRAZILIAN_STATES = [
   "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ] as const;
 
-// Número máximo de advogados que podem desbloquear o mesmo lead
-export const MAX_UNLOCKS_PER_LEAD = 3;
+// Número máximo de advogados que podem manifestar interesse na mesma causa.
+// Regra de produto (evitar sobrecarregar o cliente com contatos), não uma
+// cota "comprável" — qualquer advogado assinante pode manifestar interesse
+// enquanto houver vaga.
+export const MAX_INTERESTS_PER_LEAD = 5;
 
 // Desligado até um gateway de pagamento real (Pix/cartão) ser integrado.
 // Ver README.md > "O que ainda é stub". Quando integrar, ligue esta flag.

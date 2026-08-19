@@ -1,19 +1,10 @@
 import { PrismaClient, LegalArea, Urgency } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { computeLeadCoinCost } from "../src/lib/pricing";
+import { getPlanDefinition } from "../src/lib/subscriptions";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  await prisma.coinPackage.createMany({
-    data: [
-      { name: "Starter", coinAmount: 50, bonusCoins: 0, priceBRL: 75, displayOrder: 1 },
-      { name: "Pro", coinAmount: 150, bonusCoins: 22, priceBRL: 210, displayOrder: 2 },
-      { name: "Premium", coinAmount: 400, bonusCoins: 120, priceBRL: 520, displayOrder: 3 },
-    ],
-    skipDuplicates: true,
-  });
-
   const passwordHash = await bcrypt.hash("senha123", 10);
   const lawyer = await prisma.user.upsert({
     where: { email: "advogado.demo@conectadireito.com.br" },
@@ -28,9 +19,25 @@ async function main() {
       phone: "(11) 99999-0000",
       areasOfPractice: ["TRABALHISTA", "CONSUMIDOR", "FAMILIA"],
       activeRegions: ["São Paulo/SP"],
-      coinBalance: 200,
     },
   });
+
+  const hasActiveSubscription = await prisma.subscription.findFirst({
+    where: { lawyerId: lawyer.id, status: "ACTIVE" },
+  });
+  if (!hasActiveSubscription) {
+    const basico = getPlanDefinition("BASICO");
+    await prisma.subscription.create({
+      data: {
+        lawyerId: lawyer.id,
+        plan: basico.plan,
+        priceBRL: basico.priceBRL,
+        status: "ACTIVE",
+        renewsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        paymentProvider: "seed",
+      },
+    });
+  }
 
   const demoLeads: {
     fullName: string;
@@ -86,12 +93,7 @@ async function main() {
   ];
 
   for (const lead of demoLeads) {
-    await prisma.lead.create({
-      data: {
-        ...lead,
-        coinCost: computeLeadCoinCost(lead.legalArea, lead.urgency),
-      },
-    });
+    await prisma.lead.create({ data: lead });
   }
 
   console.log("Seed concluído. Login de demonstração:");

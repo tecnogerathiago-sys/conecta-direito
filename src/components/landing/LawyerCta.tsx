@@ -8,11 +8,12 @@ export function LawyerCta() {
       <div className="mx-auto flex max-w-shell flex-col items-center gap-4 px-4 py-16 text-center sm:px-6">
         <h2 className="text-h1 text-foreground">Você é advogado?</h2>
         <p className="max-w-md text-body text-foreground-secondary">
-          Receba oportunidades de clientes que precisam exatamente da sua área de atuação.
+          Assine a plataforma para ter visibilidade em causas da sua área de atuação e manifestar
+          interesse nas que fizerem sentido para você.
         </p>
         <Link href="/advogado/entrar">
           <Button variant="primary" size="lg">
-            Quero receber oportunidades
+            Conhecer a plataforma
             <ArrowRight className="size-4" aria-hidden />
           </Button>
         </Link>

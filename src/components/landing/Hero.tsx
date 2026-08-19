@@ -13,7 +13,8 @@ export function Hero() {
           Encontre o advogado certo para o seu caso.
         </h1>
         <p className="max-w-xl text-body text-primary-foreground/70">
-          Conte o que aconteceu e receba contato de advogados especializados na sua região.
+          Conte o que aconteceu. Advogados especializados na sua região podem manifestar interesse
+          no seu caso — você decide para quem libera seu contato.
         </p>
         <div className="mt-2 flex flex-col items-center gap-3 sm:flex-row">
           <Link href="/solicitar">

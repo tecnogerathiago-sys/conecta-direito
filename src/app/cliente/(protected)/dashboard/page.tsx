@@ -8,6 +8,7 @@ import { ClientCaseCard } from "@/components/dashboard/ClientCaseCard";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { caseCodeFor } from "@/lib/masking";
 
 export default async function ClienteDashboardPage() {
   const session = await getServerSession(authOptions);
@@ -15,7 +16,12 @@ export default async function ClienteDashboardPage() {
 
   const cases = await prisma.lead.findMany({
     where: { clientId: session.user.id },
-    include: { unlocks: true },
+    include: {
+      interests: {
+        include: { lawyer: { select: { name: true, oabNumber: true, oabState: true, activeRegions: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
     orderBy: { createdAt: "desc" },
   });
 
@@ -52,14 +58,21 @@ export default async function ClienteDashboardPage() {
           {cases.map((c) => (
             <ClientCaseCard
               key={c.id}
+              caseCode={caseCodeFor(c.id)}
               legalArea={c.legalArea}
               urgency={c.urgency}
               status={c.status}
               city={c.city}
               state={c.state}
               createdAt={c.createdAt}
-              unlocksCount={c.unlocks.length}
-              maxUnlocks={c.maxUnlocks}
+              maxInterests={c.maxInterests}
+              interests={c.interests.map((i) => ({
+                interestId: i.id,
+                status: i.status,
+                lawyerName: i.lawyer.name,
+                oab: i.lawyer.oabNumber ? `OAB/${i.lawyer.oabState} ${i.lawyer.oabNumber}` : null,
+                region: i.lawyer.activeRegions[0] ?? null,
+              }))}
             />
           ))}
         </div>

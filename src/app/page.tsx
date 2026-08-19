@@ -28,6 +28,14 @@ export default function LandingPage() {
       </section>
 
       <LawyerCta />
+
+      <footer className="border-t border-border px-4 py-8 sm:px-6">
+        <p className="mx-auto max-w-shell text-center text-caption text-foreground-muted">
+          O Conecta Direito é um canal de divulgação de informações e viabilização de contato entre
+          clientes e advogados. A plataforma não presta serviços jurídicos nem realiza captação de
+          clientela — a decisão de contratar um advogado é sempre do cliente.
+        </p>
+      </footer>
     </main>
   );
 }

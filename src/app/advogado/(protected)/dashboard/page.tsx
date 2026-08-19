@@ -1,19 +1,20 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import Link from "next/link";
-import { SearchX, Inbox, Wallet } from "lucide-react";
+import { SearchX, Inbox, CreditCard } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { toPublicLead, toUnlockedLead } from "@/lib/masking";
+import { toPublicLead, toReleasedContact } from "@/lib/masking";
 import { OpportunityCard } from "@/components/dashboard/OpportunityCard";
 import { FilterBar } from "@/components/dashboard/FilterBar";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Button } from "@/components/ui/Button";
+import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
 import { LegalArea, Urgency } from "@prisma/client";
 
 interface Props {
-  searchParams: { local?: string; busca?: string; area?: string; urgencia?: string; moedas?: string };
+  searchParams: { local?: string; busca?: string; area?: string; urgencia?: string };
 }
 
 export default async function LeadsDashboardPage({ searchParams }: Props) {
@@ -29,14 +30,13 @@ export default async function LeadsDashboardPage({ searchParams }: Props) {
   const urgency = Object.values(Urgency).includes(searchParams.urgencia as Urgency)
     ? (searchParams.urgencia as Urgency)
     : undefined;
-  const maxCoins = searchParams.moedas ? Number(searchParams.moedas) : undefined;
 
-  const [lawyer, leads] = await Promise.all([
-    prisma.user.findUnique({ where: { id: lawyerId }, select: { coinBalance: true } }),
+  const [activeSubscription, leads] = await Promise.all([
+    prisma.subscription.findFirst({ where: { lawyerId, status: "ACTIVE" } }),
     prisma.lead.findMany({
       where: {
         AND: [
-          { OR: [{ status: "OPEN" }, { unlocks: { some: { lawyerId } } }] },
+          { OR: [{ status: "OPEN" }, { interests: { some: { lawyerId } } }] },
           location
             ? {
                 OR: [
@@ -48,72 +48,70 @@ export default async function LeadsDashboardPage({ searchParams }: Props) {
           keyword ? { description: { contains: keyword, mode: "insensitive" } } : {},
           area ? { legalArea: area } : {},
           urgency ? { urgency } : {},
-          maxCoins ? { coinCost: { lte: maxCoins } } : {},
         ],
       },
       orderBy: { createdAt: "desc" },
-      include: { unlocks: true },
+      include: { interests: true },
       take: 50,
     }),
   ]);
 
-  const coinBalance = lawyer?.coinBalance ?? 0;
-  const hasActiveFilters = Boolean(location || keyword || area || urgency || maxCoins);
+  const hasActiveSubscription = Boolean(activeSubscription);
+  const hasActiveFilters = Boolean(location || keyword || area || urgency);
 
   return (
     <div>
       <PageHeader
         title="Oportunidades"
-        description="Encontre casos que combinam com sua área de atuação."
+        description="Encontre causas que combinam com sua área de atuação."
         actions={
-          <Link href="/advogado/carteira">
-            <Button variant="accent" size="sm">
-              <Wallet className="size-4" aria-hidden />
-              Comprar moedas
-            </Button>
-          </Link>
+          !hasActiveSubscription && (
+            <Link href="/advogado/assinatura">
+              <Button variant="accent" size="sm">
+                <CreditCard className="size-4" aria-hidden />
+                Assinar plataforma
+              </Button>
+            </Link>
+          )
         }
       />
 
-      <FilterBar
-        defaultLocation={location}
-        defaultKeyword={keyword}
-        defaultArea={area}
-        defaultUrgency={urgency}
-        defaultMaxCoins={searchParams.moedas}
-      />
+      <FilterBar defaultLocation={location} defaultKeyword={keyword} defaultArea={area} defaultUrgency={urgency} />
+
+      <div className="mb-4">
+        <ComplianceNotice text="As causas são exibidas de forma anônima. O contato do cliente só é revelado depois que ele mesmo aceitar seu interesse." />
+      </div>
 
       <p className="mb-4 text-small text-foreground-secondary">
-        {leads.length} oportunidade{leads.length === 1 ? "" : "s"} encontrada{leads.length === 1 ? "" : "s"}
+        {leads.length} causa{leads.length === 1 ? "" : "s"} encontrada{leads.length === 1 ? "" : "s"}
       </p>
 
       {leads.length === 0 ? (
         <EmptyState
           icon={hasActiveFilters ? SearchX : Inbox}
-          title={
-            hasActiveFilters
-              ? "Nenhuma oportunidade encontrada"
-              : "Nenhuma oportunidade disponível no momento"
-          }
+          title={hasActiveFilters ? "Nenhuma causa encontrada" : "Nenhuma causa disponível no momento"}
           description={
             hasActiveFilters
               ? "Tente ajustar ou limpar os filtros para ver mais resultados."
-              : "Novos casos aparecem aqui assim que forem publicados."
+              : "Novas causas aparecem aqui assim que forem publicadas."
           }
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {leads.map((lead) => {
-            const myUnlock = lead.unlocks.find((u) => u.lawyerId === lawyerId);
-            const remainingSlots = lead.maxUnlocks - lead.unlocks.length;
+            const myInterest = lead.interests.find((i) => i.lawyerId === lawyerId);
+            const remainingSlots = lead.maxInterests - lead.interests.length;
 
             return (
               <OpportunityCard
                 key={lead.id}
                 lead={toPublicLead(lead)}
                 remainingSlots={remainingSlots}
-                coinBalance={coinBalance}
-                unlockedByCurrentLawyer={myUnlock ? toUnlockedLead(lead) : null}
+                hasActiveSubscription={hasActiveSubscription}
+                myInterestStatus={myInterest?.status ?? null}
+                releasedContact={
+                  myInterest?.status === "ACCEPTED" ? toReleasedContact(lead) : null
+                }
               />
             );
           })}

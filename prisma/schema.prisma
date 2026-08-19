@@ -1,5 +1,12 @@
 // ==========================================================
 // Conecta Direito — Schema do banco de dados
+//
+// Modelo de negócio: assinatura mensal do advogado (acesso à
+// plataforma), não pagamento por contato individual. O contato do
+// cliente só é revelado ao advogado depois que o próprio cliente
+// aceita explicitamente — ver InterestManifestation.contactReleasedAt.
+// Isso evita o enquadramento como captação de clientela / mercantilização
+// da advocacia (art. 39+ do Código de Ética da OAB, Provimento 205/2021).
 // ==========================================================
 
 generator client {
@@ -40,23 +47,33 @@ enum Urgency {
 }
 
 enum LeadStatus {
-  OPEN // ainda pode ser desbloqueado por novos advogados
-  CLOSED // atingiu o limite de desbloqueios (maxUnlocks)
-  EXPIRED // ficou muito tempo sem desbloqueios / cancelado
+  OPEN // ainda pode receber manifestações de interesse
+  CLOSED // atingiu o limite de manifestações (maxInterests)
+  EXPIRED // ficou muito tempo sem manifestações / cancelado
 }
 
-enum TransactionType {
-  PURCHASE // compra de pacote de moedas
-  UNLOCK_SPEND // gasto de moedas para desbloquear um lead
-  REFUND // estorno de moedas (ex: lead inválido)
-  BONUS // moedas de bônus (promoções, indicação)
+enum SubscriptionPlan {
+  BASICO
+  PRO
 }
 
-enum PaymentStatus {
-  PENDING
-  PAID
-  FAILED
-  REFUNDED
+enum SubscriptionStatus {
+  PENDING // checkout iniciado, aguardando confirmação do gateway
+  ACTIVE
+  PAST_DUE // pagamento recorrente falhou, aguardando nova tentativa
+  CANCELED
+}
+
+enum InterestStatus {
+  PENDING // advogado manifestou, cliente ainda não respondeu
+  ACCEPTED // cliente liberou o contato
+  DECLINED // cliente optou por não liberar
+}
+
+enum NotificationType {
+  LAWYER_INTEREST // cliente: um advogado manifestou interesse no seu caso
+  CONTACT_ACCEPTED // advogado: cliente aceitou liberar o contato
+  CONTACT_DECLINED // advogado: cliente recusou liberar o contato
 }
 
 // ------------------------------------------------------------
@@ -76,29 +93,29 @@ model User {
   cpf          String?   @unique
   birthDate    DateTime?
 
-  // Dados específicos de advogado
+  // Dados específicos de advogado — nome, OAB e cidade são exibidos
+  // publicamente ao cliente quando o advogado manifesta interesse.
   oabNumber    String?  @unique
   oabState     String? // UF de registro na OAB, ex: "SP"
 
   areasOfPractice LegalArea[] @default([])
   activeRegions   String[]    @default([]) // cidades/UFs em que atua
 
-  coinBalance  Int      @default(0) // saldo atual de moedas (só relevante para advogados)
-
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  unlocks      LeadUnlock[]
-  transactions Transaction[]
-  leads        Lead[] // casos abertos por este usuário, quando role = CLIENT
+  leads         Lead[] // casos abertos por este usuário, quando role = CLIENT
+  subscriptions Subscription[] // histórico de assinaturas, quando role = LAWYER
+  interests     InterestManifestation[]
+  notifications Notification[]
 
   @@index([role])
   @@map("users")
 }
 
 // ------------------------------------------------------------
-// Leads (Demandas cadastradas pelos clientes)
+// Leads (Causas cadastradas pelos clientes)
 // ------------------------------------------------------------
 
 model Lead {
@@ -111,29 +128,30 @@ model Lead {
   clientId    String?
   client      User?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
-  // Dados sensíveis do cliente — NUNCA expor via API pública
-  // sem antes validar um LeadUnlock correspondente.
+  // Dados sensíveis do cliente — NUNCA expor via API pública. Só chegam
+  // ao advogado através de InterestManifestation.contactReleasedAt,
+  // depois que o cliente aceita explicitamente aquele advogado específico.
   fullName    String
   cpf         String
   birthDate   DateTime
   phone       String
   email       String
 
-  // Detalhes da causa — podem ser exibidos publicamente (resumo)
+  // Detalhes da causa — podem ser exibidos publicamente, de forma anônima
+  // (identificados só pelo id/"Caso #...", nunca pelo nome do cliente)
   legalArea   LegalArea
   description String
   urgency     Urgency
   city        String
   state       String
 
-  status      LeadStatus @default(OPEN)
-  maxUnlocks  Int        @default(3) // limite de advogados que podem desbloquear
-  coinCost    Int // custo em moedas para desbloquear, calculado em lib/pricing.ts
+  status        LeadStatus @default(OPEN)
+  maxInterests  Int        @default(5) // limite de advogados que podem manifestar interesse
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
-  unlocks     LeadUnlock[]
+  interests   InterestManifestation[]
 
   @@index([status])
   @@index([legalArea, city])
@@ -142,80 +160,83 @@ model Lead {
 }
 
 // ------------------------------------------------------------
-// LeadUnlocks (registro de quem desbloqueou qual lead)
+// InterestManifestations (advogado manifesta interesse em uma causa;
+// cliente decide se libera o contato para aquele advogado específico)
 // ------------------------------------------------------------
 
-model LeadUnlock {
-  id         String   @id @default(cuid())
-
-  leadId     String
-  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
-
-  lawyerId   String
-  lawyer     User     @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
-
-  coinsSpent Int
-  unlockedAt DateTime @default(now())
-
-  // Um mesmo advogado não pode desbloquear o mesmo lead duas vezes
-  @@unique([leadId, lawyerId])
-  @@index([lawyerId])
-  @@map("lead_unlocks")
-}
-
-// ------------------------------------------------------------
-// Transactions (histórico de compra de moedas e gastos)
-// ------------------------------------------------------------
-
-model Transaction {
+model InterestManifestation {
   id                String          @id @default(cuid())
 
-  userId            String
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  leadId            String
+  lead              Lead            @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  type              TransactionType
+  lawyerId          String
+  lawyer            User            @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
 
-  // Positivo para créditos (compra, bônus, estorno), negativo para gastos (unlock)
-  coinAmount        Int
+  status            InterestStatus  @default(PENDING)
 
-  // Preenchido apenas em transações de compra (PURCHASE)
-  amountBRL         Decimal?        @db.Decimal(10, 2)
-  coinPackageId     String?
-  coinPackage       CoinPackage?    @relation(fields: [coinPackageId], references: [id])
-
-  paymentStatus     PaymentStatus?  // relevante apenas para PURCHASE
-  paymentProvider   String? // ex: "pix", "credit_card"
-  externalPaymentId String? // id da transação no gateway de pagamento
-
-  // Referência ao desbloqueio, quando type = UNLOCK_SPEND
-  leadUnlockId      String?
+  // Nulo até o cliente clicar em "Aceitar contato" para este advogado.
+  // Só quando preenchido é que os dados sensíveis do Lead podem ser
+  // exibidos a este advogado (ver lib/masking.ts).
+  contactReleasedAt DateTime?
+  respondedAt       DateTime?
 
   createdAt         DateTime        @default(now())
 
-  @@index([userId])
-  @@index([type])
-  @@map("transactions")
+  // Um mesmo advogado não pode manifestar interesse duas vezes na mesma causa
+  @@unique([leadId, lawyerId])
+  @@index([lawyerId])
+  @@index([leadId])
+  @@map("interest_manifestations")
 }
 
 // ------------------------------------------------------------
-// CoinPackages (pacotes de moedas disponíveis na loja)
+// Subscriptions (assinatura mensal do advogado — dá acesso à
+// plataforma e à visibilidade no mural de causas, não a leads individuais)
 // ------------------------------------------------------------
 
-model CoinPackage {
-  id           String   @id @default(cuid())
+model Subscription {
+  id                     String              @id @default(cuid())
 
-  name         String // "Starter", "Pro", "Premium"
-  coinAmount   Int // moedas base do pacote
-  bonusCoins   Int      @default(0) // moedas extras de bônus
-  priceBRL     Decimal  @db.Decimal(10, 2)
+  lawyerId               String
+  lawyer                 User                @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
 
-  isActive     Boolean  @default(true)
-  displayOrder Int      @default(0)
+  plan                   SubscriptionPlan
+  status                 SubscriptionStatus  @default(PENDING)
+  priceBRL               Decimal             @db.Decimal(10, 2)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  startedAt              DateTime            @default(now())
+  renewsAt               DateTime?
+  canceledAt             DateTime?
 
-  transactions Transaction[]
+  paymentProvider        String? // ex: "mercadopago"
+  externalSubscriptionId String? // id da assinatura no gateway de pagamento
 
-  @@map("coin_packages")
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  @@index([lawyerId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+// ------------------------------------------------------------
+// Notifications (eventos in-app — base para e-mail/push no futuro)
+// ------------------------------------------------------------
+
+model Notification {
+  id        String           @id @default(cuid())
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      NotificationType
+  message   String
+  leadId    String? // referência informativa, sem relação obrigatória
+
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@map("notifications")
 }

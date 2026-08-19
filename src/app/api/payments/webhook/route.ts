@@ -1,41 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
 /**
- * Endpoint chamado pelo gateway de pagamento quando um Pix/cartão é
- * confirmado. Credita as moedas ao advogado de forma idempotente.
+ * Endpoint chamado pelo gateway de pagamento quando uma cobrança da
+ * assinatura (inicial ou renovação) é confirmada ou falha. Ativa/renova a
+ * assinatura de forma idempotente — nunca dá acesso à plataforma sem essa
+ * confirmação.
  *
- * TODO: validar a assinatura do webhook usando PAYMENT_PROVIDER_WEBHOOK_SECRET
- * antes de confiar no payload — implementação específica do gateway escolhido.
+ * TODO: validar a assinatura do webhook (x-signature do Mercado Pago) usando
+ * PAYMENT_PROVIDER_WEBHOOK_SECRET antes de confiar no payload.
  */
 export async function POST(req: NextRequest) {
   const payload = await req.json().catch(() => null);
-  const transactionId: string | undefined = payload?.transactionId;
+  const subscriptionId: string | undefined = payload?.subscriptionId;
   const status: string | undefined = payload?.status; // "paid" | "failed"
-  const externalPaymentId: string | undefined = payload?.externalPaymentId;
+  const externalSubscriptionId: string | undefined = payload?.externalSubscriptionId;
 
-  if (!transactionId || !status) {
+  if (!subscriptionId || !status) {
     return NextResponse.json({ error: "Payload inválido." }, { status: 400 });
   }
 
   await prisma.$transaction(async (tx) => {
-    const transaction = await tx.transaction.findUnique({ where: { id: transactionId } });
-    if (!transaction || transaction.type !== "PURCHASE") return;
-    if (transaction.paymentStatus !== "PENDING") return; // já processado, ignora
+    const subscription = await tx.subscription.findUnique({ where: { id: subscriptionId } });
+    if (!subscription || subscription.status === "CANCELED") return;
 
     if (status === "paid") {
-      await tx.transaction.update({
-        where: { id: transaction.id },
-        data: { paymentStatus: "PAID", externalPaymentId },
-      });
-      await tx.user.update({
-        where: { id: transaction.userId },
-        data: { coinBalance: { increment: transaction.coinAmount } },
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: "ACTIVE",
+          renewsAt: new Date(Date.now() + THIRTY_DAYS_MS),
+          externalSubscriptionId: externalSubscriptionId ?? subscription.externalSubscriptionId,
+        },
       });
     } else {
-      await tx.transaction.update({
-        where: { id: transaction.id },
-        data: { paymentStatus: "FAILED", externalPaymentId },
+      await tx.subscription.update({
+        where: { id: subscription.id },
+        data: { status: subscription.status === "ACTIVE" ? "PAST_DUE" : "CANCELED" },
       });
     }
   });

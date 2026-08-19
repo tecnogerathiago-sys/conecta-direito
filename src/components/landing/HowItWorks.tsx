@@ -1,7 +1,7 @@
 const STEPS = [
-  { number: "01", title: "Conte seu caso", text: "Explique rapidamente sua situação." },
-  { number: "02", title: "Receba contatos", text: "Advogados especializados analisam seu caso." },
-  { number: "03", title: "Escolha quem contratar", text: "Compare e converse com os profissionais." },
+  { number: "01", title: "Conte seu caso", text: "Explique rapidamente sua situação, de forma anônima." },
+  { number: "02", title: "Receba manifestações de interesse", text: "Advogados especializados na área analisam seu caso." },
+  { number: "03", title: "Decida quem contatar", text: "Veja o perfil de cada interessado e libere seu contato só para quem escolher." },
 ];
 
 export function HowItWorks() {

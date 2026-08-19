@@ -9,6 +9,7 @@ import { StepCaseDetails } from "@/components/forms/steps/StepCaseDetails";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Stepper } from "@/components/ui/Stepper";
+import { ComplianceNotice } from "@/components/ui/ComplianceNotice";
 
 export function LeadCaptureForm() {
   const router = useRouter();
@@ -68,6 +69,10 @@ export function LeadCaptureForm() {
           </Button>
         </form>
       </Card>
+
+      <div className="mt-4">
+        <ComplianceNotice text="Seu caso é exibido de forma anônima para advogados. Seu nome e contato só são revelados a um advogado específico depois que você aceitar explicitamente." />
+      </div>
     </div>
   );
 }

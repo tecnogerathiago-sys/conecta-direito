@@ -3,8 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createLeadSchema } from "@/lib/validations";
-import { computeLeadCoinCost } from "@/lib/pricing";
-import { MAX_UNLOCKS_PER_LEAD } from "@/lib/constants";
+import { MAX_INTERESTS_PER_LEAD } from "@/lib/constants";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -28,7 +27,6 @@ export async function POST(req: NextRequest) {
   }
 
   const data = parsed.data;
-  const coinCost = computeLeadCoinCost(data.legalArea, data.urgency);
 
   const lead = await prisma.lead.create({
     data: {
@@ -44,8 +42,7 @@ export async function POST(req: NextRequest) {
       urgency: data.urgency,
       city: data.city,
       state: data.state,
-      coinCost,
-      maxUnlocks: MAX_UNLOCKS_PER_LEAD,
+      maxInterests: MAX_INTERESTS_PER_LEAD,
     },
     select: { id: true },
   });

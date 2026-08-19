@@ -2,6 +2,7 @@ import { MapPin, Users } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { LEGAL_AREA_LABELS, URGENCY_LABELS } from "@/lib/constants";
+import { InterestedLawyersList, InterestedLawyerRow } from "@/components/dashboard/InterestedLawyersList";
 import type { LegalArea, Urgency, LeadStatus } from "@prisma/client";
 
 const STATUS_LABELS: Record<LeadStatus, string> = {
@@ -17,25 +18,27 @@ const STATUS_TONE = {
 } as const;
 
 interface Props {
+  caseCode: string;
   legalArea: LegalArea;
   urgency: Urgency;
   status: LeadStatus;
   city: string;
   state: string;
   createdAt: Date;
-  unlocksCount: number;
-  maxUnlocks: number;
+  maxInterests: number;
+  interests: InterestedLawyerRow[];
 }
 
 export function ClientCaseCard({
+  caseCode,
   legalArea,
   urgency,
   status,
   city,
   state,
   createdAt,
-  unlocksCount,
-  maxUnlocks,
+  maxInterests,
+  interests,
 }: Props) {
   return (
     <Card className="flex flex-col gap-3.5">
@@ -49,9 +52,12 @@ export function ClientCaseCard({
         </span>
       </div>
 
-      <div className="flex items-center gap-1.5 text-small text-foreground-secondary">
-        <MapPin className="size-3.5 shrink-0" aria-hidden />
-        {city}, {state}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-small font-medium text-foreground">{caseCode}</span>
+        <div className="flex items-center gap-1.5 text-small text-foreground-secondary">
+          <MapPin className="size-3.5 shrink-0" aria-hidden />
+          {city}, {state}
+        </div>
       </div>
 
       <Badge tone={STATUS_TONE[status]} className="w-fit">
@@ -59,21 +65,16 @@ export function ClientCaseCard({
       </Badge>
 
       <div className="border-t border-border pt-3.5">
-        <div className="mb-1.5 flex items-center justify-between text-small">
+        <div className="mb-2.5 flex items-center justify-between text-small">
           <span className="flex items-center gap-1.5 text-foreground-secondary">
             <Users className="size-3.5" aria-hidden />
-            Interesse de advogados
+            Advogados interessados no seu caso
           </span>
           <span className="font-medium text-foreground">
-            {unlocksCount}/{maxUnlocks}
+            {interests.length}/{maxInterests}
           </span>
         </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-background-secondary">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-150"
-            style={{ width: `${maxUnlocks > 0 ? (unlocksCount / maxUnlocks) * 100 : 0}%` }}
-          />
-        </div>
+        <InterestedLawyersList rows={interests} />
       </div>
     </Card>
   );

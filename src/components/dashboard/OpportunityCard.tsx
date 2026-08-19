@@ -1,10 +1,11 @@
 import { MapPin, Clock, Users } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { UnlockButton } from "@/components/dashboard/UnlockButton";
-import { PublicLead, UnlockedLead } from "@/lib/masking";
+import { InterestButton } from "@/components/dashboard/InterestButton";
+import { PublicLead, ReleasedContact } from "@/lib/masking";
 import { LEGAL_AREA_LABELS, URGENCY_LABELS } from "@/lib/constants";
 import { formatRelativeTime } from "@/lib/format";
+import type { InterestStatus } from "@prisma/client";
 
 const URGENCY_TONE = {
   ALTA: "warning",
@@ -15,16 +16,26 @@ const URGENCY_TONE = {
 interface Props {
   lead: PublicLead;
   remainingSlots: number;
-  coinBalance: number;
-  unlockedByCurrentLawyer: UnlockedLead | null;
+  hasActiveSubscription: boolean;
+  myInterestStatus: InterestStatus | null;
+  releasedContact: ReleasedContact | null;
 }
 
-export function OpportunityCard({ lead, remainingSlots, coinBalance, unlockedByCurrentLawyer }: Props) {
+export function OpportunityCard({
+  lead,
+  remainingSlots,
+  hasActiveSubscription,
+  myInterestStatus,
+  releasedContact,
+}: Props) {
   return (
     <Card className="flex flex-col gap-3.5">
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Badge tone="primary">{LEGAL_AREA_LABELS[lead.legalArea]}</Badge>
-        {lead.urgency === "ALTA" && <Badge tone={URGENCY_TONE[lead.urgency]}>Urgente</Badge>}
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge tone="primary">{LEGAL_AREA_LABELS[lead.legalArea]}</Badge>
+          {lead.urgency === "ALTA" && <Badge tone={URGENCY_TONE[lead.urgency]}>Urgente</Badge>}
+        </div>
+        <span className="text-caption text-foreground-muted">{lead.caseCode}</span>
       </div>
 
       <h3 className="text-h3 leading-snug text-foreground">{lead.title}</h3>
@@ -48,12 +59,12 @@ export function OpportunityCard({ lead, remainingSlots, coinBalance, unlockedByC
       </div>
 
       <div className="mt-1 border-t border-border pt-3.5">
-        <UnlockButton
+        <InterestButton
           leadId={lead.id}
-          coinCost={lead.coinCost}
-          coinBalance={coinBalance}
+          hasActiveSubscription={hasActiveSubscription}
           remainingSlots={remainingSlots}
-          initialUnlocked={unlockedByCurrentLawyer}
+          initialStatus={myInterestStatus}
+          releasedContact={releasedContact}
         />
       </div>
     </Card>
