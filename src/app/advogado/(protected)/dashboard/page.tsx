@@ -4,20 +4,41 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { toPublicLead, toUnlockedLead } from "@/lib/masking";
 import { LeadCard } from "@/components/dashboard/LeadCard";
+import { LeadFilters } from "@/components/dashboard/LeadFilters";
 
-export default async function LeadsDashboardPage() {
+interface Props {
+  searchParams: { local?: string; busca?: string };
+}
+
+export default async function LeadsDashboardPage({ searchParams }: Props) {
   const session = await getServerSession(authOptions);
   if (!session?.user) redirect("/advogado/entrar");
   const lawyerId = session.user.id;
 
+  const location = searchParams.local?.trim();
+  const keyword = searchParams.busca?.trim();
+
   const leads = await prisma.lead.findMany({
     where: {
-      OR: [{ status: "OPEN" }, { unlocks: { some: { lawyerId } } }],
+      AND: [
+        { OR: [{ status: "OPEN" }, { unlocks: { some: { lawyerId } } }] },
+        location
+          ? {
+              OR: [
+                { city: { contains: location, mode: "insensitive" } },
+                { state: { contains: location, mode: "insensitive" } },
+              ],
+            }
+          : {},
+        keyword ? { description: { contains: keyword, mode: "insensitive" } } : {},
+      ],
     },
     orderBy: { createdAt: "desc" },
     include: { unlocks: true },
     take: 50,
   });
+
+  const hasActiveFilters = Boolean(location || keyword);
 
   return (
     <div>
@@ -26,8 +47,14 @@ export default async function LeadsDashboardPage() {
         Desbloqueie o contato de clientes que precisam de um advogado como você.
       </p>
 
+      <LeadFilters defaultLocation={location} defaultKeyword={keyword} />
+
       {leads.length === 0 ? (
-        <p className="text-sm text-slate-500">Nenhuma oportunidade disponível no momento.</p>
+        <p className="text-sm text-slate-500">
+          {hasActiveFilters
+            ? "Nenhuma oportunidade encontrada com esses filtros."
+            : "Nenhuma oportunidade disponível no momento."}
+        </p>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {leads.map((lead) => {
