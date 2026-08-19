@@ -85,9 +85,37 @@ npm test                # roda a suíte Vitest (lib/services/interests.test.ts)
 
 Login de demonstração (advogado, já com assinatura ativa): `advogado.demo@conectadireito.com.br` / `senha123`.
 
+## Pagamentos (Mercado Pago)
+
+`PAYMENTS_ENABLED = true` em `lib/constants.ts`, integrado de verdade com o
+Mercado Pago (PreApproval / assinaturas recorrentes) — ver
+`lib/mercadopago.ts`, `POST /api/subscriptions/checkout` e
+`POST /api/payments/webhook`. Hoje as credenciais em uso (env vars
+`MERCADOPAGO_ACCESS_TOKEN`/`MERCADOPAGO_PUBLIC_KEY`/`MERCADOPAGO_WEBHOOK_SECRET`)
+são **de teste** (prefixo `TEST-`), então nenhuma cobrança real acontece.
+
+Verificado manualmente contra a API real do Mercado Pago: o token autentica,
+a criação da assinatura (`POST /api/subscriptions/checkout`) cria um
+PreApproval de verdade e devolve uma `init_point` válida, e a validação de
+assinatura do webhook (`lib/services/mercadopagoWebhook.ts`) está coberta
+por testes usando o segredo real.
+
+**O que não deu pra verificar em sandbox**: autorizar uma assinatura de
+teste até o fim (tela de checkout → `status: authorized` → webhook →
+`Subscription.status = ACTIVE`). A conta usada para gerar as credenciais é
+uma conta Mercado Pago real (não uma conta de teste dedicada), e nesse
+cenário: (a) a tela de checkout deles bloqueia navegador automatizado
+(Playwright), e (b) tentar autorizar via API com um cartão de teste retorna
+`404 Card token service not found` — a autorização parece só ser possível
+pela tela hospedada deles, mesmo por API. Pra fechar esse ciclo em sandbox
+seria preciso criar uma aplicação + webhook dedicados para uma conta de
+teste (`/users/test_user`), o que não foi feito. **Antes de cobrar
+advogados de verdade**, troque as 3 variáveis pelas credenciais de
+produção e faça uma assinatura real ponta a ponta pra confirmar que o
+webhook ativa a assinatura corretamente.
+
 ## O que ainda é stub / próximos passos
 
-- **Gateway de pagamento recorrente**: `POST /api/subscriptions/checkout` cria a `Subscription` como `PENDING` e devolve uma `paymentUrl` fake. É preciso trocar pela criação real de uma assinatura recorrente (ex: preapproval do Mercado Pago) e validar a assinatura do webhook em `POST /api/payments/webhook` usando `PAYMENT_PROVIDER_WEBHOOK_SECRET`.
 - **Notificação por e-mail/SMS**: hoje `Notification` é só in-app (aparece dentro do painel). O cliente só sabe que um advogado manifestou interesse ao entrar no site — falta plugar um serviço de e-mail/SMS que dispare a partir da criação de cada `Notification`.
 - **Cadastro de advogado com validação de OAB**: hoje só existe login; falta a tela de cadastro (dados pessoais + nº OAB + áreas/regiões) e, idealmente, uma verificação externa do registro na OAB.
 - **Painel admin**: aprovar/moderar causas e advogados, gerenciar assinaturas manualmente.
