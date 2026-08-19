@@ -1,11 +1,13 @@
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LawyerCta } from "@/components/landing/LawyerCta";
+import { WrongAccountBanner } from "@/components/landing/WrongAccountBanner";
 import { LEGAL_AREA_LABELS } from "@/lib/constants";
 
 export default function LandingPage() {
   return (
     <main>
+      <WrongAccountBanner />
       <Hero />
       <HowItWorks />
 

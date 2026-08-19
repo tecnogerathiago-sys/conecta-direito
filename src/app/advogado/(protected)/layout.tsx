@@ -28,7 +28,7 @@ export default async function AdvogadoLayout({ children }: { children: React.Rea
     redirect("/advogado/entrar");
   }
   if (session.user.role !== "LAWYER") {
-    redirect("/");
+    redirect("/?contaErrada=cliente");
   }
 
   const lawyer = await prisma.user.findUnique({

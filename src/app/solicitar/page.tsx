@@ -10,7 +10,7 @@ export default async function SolicitarPage() {
     redirect("/cliente/cadastrar?next=/solicitar");
   }
   if (session.user.role !== "CLIENT") {
-    redirect("/");
+    redirect("/?contaErrada=advogado");
   }
 
   return (
