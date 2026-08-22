@@ -19,6 +19,7 @@ interface Props {
 }
 
 interface PixPayment {
+  id: string;
   qrCode: string | null;
   qrCodeBase64: string | null;
   dueDate: string;
@@ -48,6 +49,7 @@ export function PlanCard({ plan, name, priceBRL, features, recommended, isCurren
       }
 
       setPixPayment({
+        id: body.payment.id,
         qrCode: body.payment.qrCode,
         qrCodeBase64: body.payment.qrCodeBase64,
         dueDate: body.payment.dueDate,
@@ -97,6 +99,7 @@ export function PlanCard({ plan, name, priceBRL, features, recommended, isCurren
         </Button>
       ) : pixPayment ? (
         <PixCheckoutPanel
+          subscriptionPaymentId={pixPayment.id}
           qrCode={pixPayment.qrCode}
           qrCodeBase64={pixPayment.qrCodeBase64}
           dueDate={pixPayment.dueDate}

@@ -6,16 +6,24 @@ import { Check, Copy, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 interface Props {
+  subscriptionPaymentId: string;
   qrCodeBase64: string | null;
   qrCode: string | null;
   dueDate: string;
   onCancel: () => void;
 }
 
-export function PixCheckoutPanel({ qrCodeBase64, qrCode, dueDate, onCancel }: Props) {
+export function PixCheckoutPanel({
+  subscriptionPaymentId,
+  qrCodeBase64,
+  qrCode,
+  dueDate,
+  onCancel,
+}: Props) {
   const router = useRouter();
   const [copied, setCopied] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [checkMessage, setCheckMessage] = useState<string | null>(null);
 
   async function copyCode() {
     if (!qrCode) return;
@@ -24,10 +32,26 @@ export function PixCheckoutPanel({ qrCodeBase64, qrCode, dueDate, onCancel }: Pr
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function checkPayment() {
+  async function checkPayment() {
     setIsChecking(true);
-    router.refresh();
-    setTimeout(() => setIsChecking(false), 1000);
+    setCheckMessage(null);
+    try {
+      const res = await fetch(`/api/subscriptions/payments/${subscriptionPaymentId}/verify`, {
+        method: "POST",
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.error ?? "Não foi possível verificar o pagamento.");
+
+      if (body.status === "PAID") {
+        router.refresh();
+      } else {
+        setCheckMessage("Ainda não identificamos o pagamento. Se você já pagou, aguarde alguns instantes e tente de novo.");
+      }
+    } catch (err) {
+      setCheckMessage(err instanceof Error ? err.message : "Erro inesperado ao verificar.");
+    } finally {
+      setIsChecking(false);
+    }
   }
 
   return (
@@ -63,6 +87,8 @@ export function PixCheckoutPanel({ qrCodeBase64, qrCode, dueDate, onCancel }: Pr
           Cancelar
         </Button>
       </div>
+
+      {checkMessage && <p className="text-caption text-foreground-muted">{checkMessage}</p>}
     </div>
   );
 }

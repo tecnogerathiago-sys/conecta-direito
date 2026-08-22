@@ -133,7 +133,14 @@ notificações dos eventos marcados no painel do Mercado Pago em
 Webhooks → Configurar notificações. Hoje só **"Planos e assinaturas"**
 está marcado (cobre o fluxo de cartão) — pra confirmações de Pix chegarem,
 é preciso marcar também **"Pagamentos (legacy)"**, nos dois modos (teste
-e produção).
+e produção). **Já aconteceu em produção** de um Pix ser aprovado no
+Mercado Pago e a assinatura continuar `PENDING` no site porque esse
+evento não estava marcado — por isso `PixCheckoutPanel` não confia só no
+webhook: o botão "Já paguei, verificar" chama
+`POST /api/subscriptions/payments/[id]/verify`, que busca o status real
+na API do Mercado Pago (mesma lógica de `lib/services/pixBilling.ts` que
+o webhook usa) e ativa a assinatura na hora, mesmo se a notificação nunca
+chegar.
 
 Verificado manualmente contra a API real: criação de assinatura (cartão),
 criação de cobrança Pix com QR code real, e validação de assinatura do

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getPreApprovalClient, getPaymentClient } from "@/lib/mercadopago";
+import { getPreApprovalClient } from "@/lib/mercadopago";
 import { isValidWebhookSignature } from "@/lib/services/mercadopagoWebhook";
+import { syncPixPaymentByExternalId } from "@/lib/services/pixBilling";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -49,48 +50,14 @@ async function handlePreapprovalNotification(dataId: string) {
 }
 
 /**
- * Confirma um pagamento Pix avulso (um ciclo da assinatura). Nunca confia
- * no corpo da notificação — sempre busca o Payment na API do Mercado Pago
- * pra saber o status real antes de liberar acesso.
+ * Confirma um pagamento Pix avulso (um ciclo da assinatura). A lógica de
+ * buscar o Payment real na API e aplicar a transição de status vive em
+ * lib/services/pixBilling.ts — compartilhada com a verificação manual que
+ * o advogado pode disparar no dashboard (fallback para quando este webhook
+ * não chega).
  */
 async function handlePaymentNotification(dataId: string) {
-  const payment = await getPaymentClient().get({ id: Number(dataId) });
-  if (payment.payment_method_id !== "pix") return;
-
-  const subscriptionPaymentId = payment.external_reference;
-  if (!subscriptionPaymentId) return;
-
-  await prisma.$transaction(async (tx) => {
-    const subPayment = await tx.subscriptionPayment.findUnique({
-      where: { id: subscriptionPaymentId },
-      include: { subscription: true },
-    });
-    if (!subPayment || subPayment.status !== "PENDING") return;
-
-    if (payment.status === "approved") {
-      const paidAt = new Date();
-      await tx.subscriptionPayment.update({
-        where: { id: subPayment.id },
-        data: { status: "PAID", paidAt, externalPaymentId: dataId },
-      });
-      await tx.subscription.update({
-        where: { id: subPayment.subscriptionId },
-        data: { status: "ACTIVE", renewsAt: new Date(paidAt.getTime() + THIRTY_DAYS_MS) },
-      });
-      await tx.notification.create({
-        data: {
-          userId: subPayment.subscription.lawyerId,
-          type: "PIX_PAYMENT_RECEIVED",
-          message: "Seu Pix foi confirmado e a assinatura foi renovada.",
-        },
-      });
-    } else if (payment.status === "rejected" || payment.status === "cancelled") {
-      await tx.subscriptionPayment.update({
-        where: { id: subPayment.id },
-        data: { status: "FAILED", externalPaymentId: dataId },
-      });
-    }
-  });
+  await syncPixPaymentByExternalId(prisma, dataId);
 }
 
 /**

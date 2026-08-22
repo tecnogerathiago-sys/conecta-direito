@@ -1,10 +1,11 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, SubscriptionPaymentStatus } from "@prisma/client";
 import { getPaymentClient } from "@/lib/mercadopago";
 
 // Pix não tem débito automático — cada QR code fica válido por um tempo,
 // depois disso a cobrança expira e (se ainda dentro da assinatura) uma
 // nova é gerada pelo job de renovação.
 const PIX_EXPIRATION_HOURS = 48;
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Cria uma cobrança Pix avulsa (Mercado Pago Payment, não PreApproval) para
@@ -50,4 +51,63 @@ export async function createPixCharge(
     await prisma.subscriptionPayment.update({ where: { id: pending.id }, data: { status: "FAILED" } });
     throw err;
   }
+}
+
+/**
+ * Confirma o status real de um pagamento Pix direto na API do Mercado Pago
+ * (nunca confia em payload de webhook nem no que já está no banco) e
+ * aplica a transição de status correspondente. Usada tanto pelo webhook
+ * (que já sabe o id do Payment) quanto pela verificação manual que o
+ * advogado pode disparar no dashboard — cobre o caso do webhook não
+ * chegar (evento não configurado no painel do Mercado Pago, instabilidade,
+ * etc.), que já aconteceu em produção.
+ */
+export async function syncPixPaymentByExternalId(
+  prisma: PrismaClient,
+  externalPaymentId: string
+): Promise<{ status: SubscriptionPaymentStatus } | null> {
+  const payment = await getPaymentClient().get({ id: Number(externalPaymentId) });
+  if (payment.payment_method_id !== "pix") return null;
+
+  const subscriptionPaymentId = payment.external_reference;
+  if (!subscriptionPaymentId) return null;
+
+  return prisma.$transaction(async (tx) => {
+    const subPayment = await tx.subscriptionPayment.findUnique({
+      where: { id: subscriptionPaymentId },
+      include: { subscription: true },
+    });
+    if (!subPayment) return null;
+    if (subPayment.status !== "PENDING") return { status: subPayment.status };
+
+    if (payment.status === "approved") {
+      const paidAt = new Date();
+      await tx.subscriptionPayment.update({
+        where: { id: subPayment.id },
+        data: { status: "PAID", paidAt, externalPaymentId },
+      });
+      await tx.subscription.update({
+        where: { id: subPayment.subscriptionId },
+        data: { status: "ACTIVE", renewsAt: new Date(paidAt.getTime() + THIRTY_DAYS_MS) },
+      });
+      await tx.notification.create({
+        data: {
+          userId: subPayment.subscription.lawyerId,
+          type: "PIX_PAYMENT_RECEIVED",
+          message: "Seu Pix foi confirmado e a assinatura foi renovada.",
+        },
+      });
+      return { status: "PAID" as const };
+    }
+
+    if (payment.status === "rejected" || payment.status === "cancelled") {
+      await tx.subscriptionPayment.update({
+        where: { id: subPayment.id },
+        data: { status: "FAILED", externalPaymentId },
+      });
+      return { status: "FAILED" as const };
+    }
+
+    return { status: "PENDING" as const };
+  });
 }
