@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
-import { Briefcase, CreditCard } from "lucide-react";
+import { Briefcase, CreditCard, User } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SubscriptionBadge } from "@/components/dashboard/SubscriptionBadge";
@@ -21,6 +21,11 @@ const navGroups: NavGroup[] = [
         href: "/advogado/assinatura",
         icon: <CreditCard className="size-4.5" aria-hidden />,
       },
+      {
+        label: "Meu perfil",
+        href: "/advogado/perfil",
+        icon: <User className="size-4.5" aria-hidden />,
+      },
     ],
   },
 ];
@@ -38,7 +43,7 @@ export default async function AdvogadoLayout({ children }: { children: React.Rea
   const [lawyer, activeSubscription] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { name: true, oabNumber: true, oabState: true },
+      select: { name: true, oabNumber: true, oabState: true, photoUrl: true },
     }),
     prisma.subscription.findFirst({
       where: { lawyerId: session.user.id, status: "ACTIVE" },
@@ -57,6 +62,7 @@ export default async function AdvogadoLayout({ children }: { children: React.Rea
       navGroups={navGroups}
       userName={lawyer.name}
       userSubtitle={subtitle}
+      userPhotoUrl={lawyer.photoUrl}
       walletSlot={<SubscriptionBadge plan={activeSubscription?.plan ?? null} />}
     >
       {children}

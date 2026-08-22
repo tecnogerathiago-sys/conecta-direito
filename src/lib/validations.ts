@@ -46,6 +46,34 @@ export const lawyerSignupSchema = z.object({
     .refine((v) => !v || z.string().url().safeParse(v).success, "Informe uma URL de imagem válida."),
 });
 
+// Edição de perfil do advogado já autenticado. Não inclui email/senha/OAB —
+// mudar identificadores de login ou registro na OAB fica fora deste fluxo.
+export const lawyerProfileUpdateSchema = z.object({
+  fullName: z.string().trim().min(5, "Informe seu nome completo."),
+  phone: z.string().regex(phoneRegex, "Informe um telefone válido, com DDD."),
+  areasOfPractice: z
+    .array(z.nativeEnum(LegalArea))
+    .min(1, "Selecione ao menos uma área de atuação."),
+  activeRegions: z
+    .array(z.string().trim().min(2, "Informe a cidade/UF."))
+    .min(1, "Informe ao menos uma cidade/UF onde você atua."),
+  contactPhone: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || phoneRegex.test(v), "Informe um telefone de contato válido, com DDD."),
+  contactEmail: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || z.string().email().safeParse(v).success, "Informe um e-mail de contato válido."),
+  photoUrl: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || z.string().url().safeParse(v).success, "Informe uma URL de imagem válida."),
+});
+
 // Dados de contato já vêm da conta do cliente logado — o formulário de
 // abertura de caso só pede os detalhes da causa em si.
 export const createLeadSchema = z.object({
@@ -62,4 +90,5 @@ export const createLeadSchema = z.object({
 
 export type ClientSignupInput = z.infer<typeof clientSignupSchema>;
 export type LawyerSignupInput = z.infer<typeof lawyerSignupSchema>;
+export type LawyerProfileUpdateInput = z.infer<typeof lawyerProfileUpdateSchema>;
 export type CreateLeadInput = z.infer<typeof createLeadSchema>;

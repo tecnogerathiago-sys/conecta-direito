@@ -1,41 +1,38 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { LegalArea } from "@prisma/client";
 import { Plus, X } from "lucide-react";
-import { lawyerSignupSchema, LawyerSignupInput } from "@/lib/validations";
-import { LEGAL_AREA_LABELS, BRAZILIAN_STATES } from "@/lib/constants";
+import { lawyerProfileUpdateSchema, LawyerProfileUpdateInput } from "@/lib/validations";
+import { LEGAL_AREA_LABELS } from "@/lib/constants";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { PhotoUploadField } from "@/components/forms/PhotoUploadField";
 
 interface Props {
-  redirectTo: string;
+  email: string;
+  oabNumber: string | null;
+  oabState: string | null;
+  initialData: LawyerProfileUpdateInput;
 }
 
-type FormValues = Omit<LawyerSignupInput, "activeRegions"> & {
+type FormValues = Omit<LawyerProfileUpdateInput, "activeRegions"> & {
   activeRegions: { value: string }[];
 };
 
-// react-hook-form's useFieldArray precisa de um array de objetos, não de
-// strings soltas — este schema espelha lawyerSignupSchema (que continua
-// sendo o contrato real da API) só trocando o formato de activeRegions.
-const formSchema = lawyerSignupSchema.extend({
+const formSchema = lawyerProfileUpdateSchema.extend({
   activeRegions: z
     .array(z.object({ value: z.string().trim().min(2, "Informe a cidade/UF.") }))
     .min(1, "Informe ao menos uma cidade/UF onde você atua."),
 });
 
-export function LawyerSignupForm({ redirectTo }: Props) {
-  const router = useRouter();
+export function LawyerProfileForm({ email, oabNumber, oabState, initialData }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newRegion, setNewRegion] = useState("");
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -50,7 +47,10 @@ export function LawyerSignupForm({ redirectTo }: Props) {
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
-    defaultValues: { activeRegions: [] },
+    defaultValues: {
+      ...initialData,
+      activeRegions: initialData.activeRegions.map((value) => ({ value })),
+    },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "activeRegions" });
@@ -66,35 +66,26 @@ export function LawyerSignupForm({ redirectTo }: Props) {
 
   async function onSubmit(values: FormValues) {
     setSubmitError(null);
+    setSuccessMessage(null);
     setIsSubmitting(true);
     try {
-      const data: LawyerSignupInput = {
+      const data: LawyerProfileUpdateInput = {
         ...values,
         activeRegions: values.activeRegions.map((r) => r.value),
       };
 
-      const res = await fetch("/api/lawyers", {
-        method: "POST",
+      const res = await fetch("/api/lawyers/me", {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
-        throw new Error(body?.error ?? "Não foi possível criar sua conta. Tente novamente.");
+        throw new Error(body?.error ?? "Não foi possível salvar as alterações. Tente novamente.");
       }
 
-      const result = await signIn("credentials", {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        throw new Error("Conta criada, mas não foi possível entrar automaticamente. Faça login.");
-      }
-
-      router.push(redirectTo);
+      setSuccessMessage("Alterações salvas.");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Erro inesperado.");
     } finally {
@@ -104,9 +95,9 @@ export function LawyerSignupForm({ redirectTo }: Props) {
 
   return (
     <Card className="mx-auto w-full max-w-xl">
-      <h2 className="text-h3 text-foreground">Cadastro de advogado</h2>
+      <h2 className="text-h3 text-foreground">Meu perfil</h2>
       <p className="mb-6 mt-1 text-small text-foreground-secondary">
-        Crie sua conta para acessar o mural de causas e assinar um plano.
+        Esses dados aparecem para clientes quando você manifesta interesse numa causa.
       </p>
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
@@ -134,21 +125,8 @@ export function LawyerSignupForm({ redirectTo }: Props) {
               error={errors.phone?.message}
               {...register("phone")}
             />
-            <Input
-              label="E-mail (login)"
-              type="email"
-              placeholder="voce@email.com"
-              error={errors.email?.message}
-              {...register("email")}
-            />
+            <Input label="E-mail (login)" value={email} disabled hint="Fale com o suporte para alterar." />
           </div>
-          <Input
-            label="Senha"
-            type="password"
-            hint="Mínimo de 8 caracteres."
-            error={errors.password?.message}
-            {...register("password")}
-          />
         </fieldset>
 
         <fieldset className="flex flex-col gap-4 border-t border-border pt-5">
@@ -177,24 +155,10 @@ export function LawyerSignupForm({ redirectTo }: Props) {
 
         <fieldset className="flex flex-col gap-4 border-t border-border pt-5">
           <legend className="mb-1 text-label font-medium text-foreground">Registro na OAB</legend>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="sm:col-span-2">
-              <Input
-                label="Número da OAB"
-                placeholder="123456"
-                error={errors.oabNumber?.message}
-                {...register("oabNumber")}
-              />
-            </div>
-            <Select label="UF" error={errors.oabState?.message} {...register("oabState")}>
-              <option value="">UF</option>
-              {BRAZILIAN_STATES.map((uf) => (
-                <option key={uf} value={uf}>
-                  {uf}
-                </option>
-              ))}
-            </Select>
-          </div>
+          <p className="text-small text-foreground-secondary">
+            {oabNumber ? `OAB/${oabState} ${oabNumber}` : "Não informado"}{" "}
+            <span className="text-caption text-foreground-muted">— fale com o suporte para alterar.</span>
+          </p>
         </fieldset>
 
         <fieldset className="flex flex-col gap-3 border-t border-border pt-5">
@@ -268,15 +232,10 @@ export function LawyerSignupForm({ redirectTo }: Props) {
         </fieldset>
 
         {submitError && <p className="text-small font-medium text-destructive">{submitError}</p>}
+        {successMessage && <p className="text-small font-medium text-success">{successMessage}</p>}
 
-        <Button
-          type="submit"
-          variant="success"
-          size="lg"
-          isLoading={isSubmitting}
-          disabled={isUploadingPhoto}
-        >
-          Criar conta
+        <Button type="submit" variant="success" size="lg" isLoading={isSubmitting} disabled={isUploadingPhoto}>
+          Salvar alterações
         </Button>
       </form>
     </Card>

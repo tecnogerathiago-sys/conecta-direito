@@ -34,12 +34,14 @@ conecta-direito/
           layout.tsx           # gate de autenticação + header com badge do plano
           dashboard/            # mural de causas (anônimas) + manifestar interesse
           assinatura/            # planos, status da assinatura, histórico
+          perfil/                 # editar dados do cadastro (inclui trocar foto)
       cliente/
         entrar/, cadastrar/
         (protected)/
           dashboard/            # "Meus casos" + advogados interessados (aceitar/recusar)
       api/
         leads/                   # POST cria lead (causa)
+        lawyers/me/               # GET/PATCH perfil do advogado autenticado
         leads/[id]/interest/      # POST advogado manifesta interesse (exige assinatura ativa)
         interests/[id]/respond/    # POST cliente aceita/recusa liberar contato
         subscriptions/checkout/     # inicia assinatura (cartão via plano, ou Pix avulso)
@@ -148,15 +150,23 @@ vira `ACTIVE` sozinha.
 
 `POST /api/uploads/photo` recebe um arquivo (`multipart/form-data`, campo
 `file`; JPG/PNG/WEBP/GIF, até 5MB) e sobe pro **Vercel Blob**
-(`@vercel/blob`), devolvendo a URL pública. `LawyerSignupForm` chama esse
-endpoint assim que o usuário escolhe o arquivo (antes de existir conta —
-por isso a rota não exige autenticação) e preenche `photoUrl` com a URL
-retornada. Sem autenticação, sem rate limit — aceitável pro volume
-esperado hoje, revisar se virar alvo de abuso.
+(`@vercel/blob`), devolvendo a URL pública. O componente
+`PhotoUploadField` (compartilhado entre cadastro e edição de perfil) chama
+esse endpoint assim que o usuário escolhe o arquivo e preenche `photoUrl`
+com a URL retornada — no cadastro isso acontece antes de existir conta
+(por isso a rota não exige autenticação); sem autenticação, sem rate
+limit — aceitável pro volume esperado hoje, revisar se virar alvo de
+abuso.
 
 Precisa de um Blob Store conectado ao projeto na Vercel (**Storage →
-Create Database → Blob**) pra `BLOB_READ_WRITE_TOKEN` ser provisionado
-automaticamente — sem ele, o upload falha com 502.
+Create Database → Blob**, acesso **Public**) pra `BLOB_READ_WRITE_TOKEN`
+ser provisionado automaticamente — sem ele, o upload falha com 502.
+
+Advogado já cadastrado edita nome, WhatsApp, contato exibido, regiões,
+áreas de atuação e foto em `/advogado/perfil`
+(`GET`/`PATCH /api/lawyers/me`). E-mail de login, senha e registro na OAB
+não são editáveis por esse fluxo — mudança desses campos passa por
+suporte.
 
 ## O que ainda é stub / próximos passos
 

@@ -14,6 +14,7 @@ interface AppShellProps {
   navGroups: NavGroup[];
   userName: string;
   userSubtitle?: string;
+  userPhotoUrl?: string | null;
   walletSlot?: ReactNode;
   children: ReactNode;
 }
@@ -23,6 +24,7 @@ export function AppShell({
   navGroups,
   userName,
   userSubtitle,
+  userPhotoUrl,
   walletSlot,
   children,
 }: AppShellProps) {
@@ -86,7 +88,7 @@ export function AppShell({
 
       <div className="border-t border-border p-3">
         <div className={clsx("flex items-center gap-2.5", collapsed && "justify-center")}>
-          <Avatar name={userName} size="sm" />
+          <Avatar name={userName} photoUrl={userPhotoUrl} size="sm" />
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-small font-medium text-foreground">{userName}</p>
