@@ -117,6 +117,6 @@ webhook ativa a assinatura corretamente.
 ## O que ainda é stub / próximos passos
 
 - **Notificação por e-mail/SMS**: hoje `Notification` é só in-app (aparece dentro do painel). O cliente só sabe que um advogado manifestou interesse ao entrar no site — falta plugar um serviço de e-mail/SMS que dispare a partir da criação de cada `Notification`.
-- **Cadastro de advogado com validação de OAB**: hoje só existe login; falta a tela de cadastro (dados pessoais + nº OAB + áreas/regiões) e, idealmente, uma verificação externa do registro na OAB.
+- **Verificação externa da OAB**: o cadastro (`/advogado/cadastrar`) coleta nº + UF da OAB e impede duplicidade (`@@unique([oabNumber, oabState])` — únicos por estado, não globalmente), mas não confirma o registro contra a base real da OAB. Hoje é confiança no que o advogado preenche.
 - **Painel admin**: aprovar/moderar causas e advogados, gerenciar assinaturas manualmente.
 - **Termos de uso / política de privacidade**: a landing tem um aviso curto no rodapé, mas não existe uma página formal de Termos ainda — precisa ser redigida (ou revisada) por advogado especializado antes de operar com usuários reais.

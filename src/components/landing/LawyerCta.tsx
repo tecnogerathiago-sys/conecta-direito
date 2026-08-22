@@ -11,7 +11,7 @@ export function LawyerCta() {
           Assine a plataforma para ter visibilidade em causas da sua área de atuação e manifestar
           interesse nas que fizerem sentido para você.
         </p>
-        <Link href="/advogado/entrar">
+        <Link href="/advogado/cadastrar">
           <Button variant="primary" size="lg">
             Conhecer a plataforma
             <ArrowRight className="size-4" aria-hidden />

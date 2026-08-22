@@ -95,7 +95,9 @@ model User {
 
   // Dados específicos de advogado — nome, OAB e cidade são exibidos
   // publicamente ao cliente quando o advogado manifesta interesse.
-  oabNumber    String?  @unique
+  // Único por OAB de registro (ex: "123456"/"SP") — não globalmente, já
+  // que advogados de estados diferentes podem ter o mesmo número.
+  oabNumber    String?
   oabState     String? // UF de registro na OAB, ex: "SP"
 
   areasOfPractice LegalArea[] @default([])
@@ -110,6 +112,7 @@ model User {
   interests     InterestManifestation[]
   notifications Notification[]
 
+  @@unique([oabNumber, oabState])
   @@index([role])
   @@map("users")
 }
