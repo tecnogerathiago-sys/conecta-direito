@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { LegalArea } from "@prisma/client";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Camera, Loader2 } from "lucide-react";
 import { lawyerSignupSchema, LawyerSignupInput } from "@/lib/validations";
 import { LEGAL_AREA_LABELS, BRAZILIAN_STATES } from "@/lib/constants";
 import { Input } from "@/components/ui/Input";
@@ -38,12 +38,17 @@ export function LawyerSignupForm({ redirectTo }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newRegion, setNewRegion] = useState("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
     handleSubmit,
     watch,
     control,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -53,13 +58,38 @@ export function LawyerSignupForm({ redirectTo }: Props) {
 
   const { fields, append, remove } = useFieldArray({ control, name: "activeRegions" });
   const fullName = watch("fullName");
-  const photoUrl = watch("photoUrl");
 
   function addRegion() {
     const value = newRegion.trim();
     if (!value) return;
     append({ value });
     setNewRegion("");
+  }
+
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhotoError(null);
+    const localPreview = URL.createObjectURL(file);
+    setPhotoPreview(localPreview);
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads/photo", { method: "POST", body: formData });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(body?.error ?? "Não foi possível enviar a imagem.");
+      }
+      setValue("photoUrl", body.url, { shouldValidate: true });
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Erro inesperado ao enviar a imagem.");
+      setPhotoPreview(null);
+      setValue("photoUrl", "");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   }
 
   async function onSubmit(values: FormValues) {
@@ -110,22 +140,49 @@ export function LawyerSignupForm({ redirectTo }: Props) {
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
         <fieldset className="flex flex-col gap-4">
           <legend className="mb-1 text-label font-medium text-foreground">Dados pessoais</legend>
-          <div className="flex items-center gap-3">
-            <Avatar name={fullName || "?"} size="md" />
-            <div className="flex-1">
-              <Input
-                label="URL da foto de perfil (opcional)"
-                placeholder="https://..."
-                error={errors.photoUrl?.message}
-                {...register("photoUrl")}
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              {photoPreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={photoPreview}
+                  alt="Pré-visualização da foto de perfil"
+                  className="size-16 rounded-full object-cover"
+                />
+              ) : (
+                <Avatar name={fullName || "?"} size="md" />
+              )}
+              {isUploadingPhoto && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-background/70">
+                  <Loader2 className="size-5 animate-spin text-primary" aria-hidden />
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={handlePhotoChange}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+              >
+                <Camera className="size-4" aria-hidden />
+                {isUploadingPhoto ? "Enviando..." : "Enviar foto de perfil"}
+              </Button>
+              <span className="text-caption text-foreground-muted">
+                Opcional. JPG, PNG, WEBP ou GIF, até 5MB.
+              </span>
             </div>
           </div>
-          {photoUrl && (
-            <p className="text-caption text-foreground-muted">
-              Dica: se a imagem não aparecer no avatar acima, confira se o link é público e aponta
-              direto para o arquivo.
-            </p>
+          {(photoError || errors.photoUrl?.message) && (
+            <p className="text-small text-destructive">{photoError || errors.photoUrl?.message}</p>
           )}
           <Input
             label="Nome completo"
@@ -275,7 +332,13 @@ export function LawyerSignupForm({ redirectTo }: Props) {
 
         {submitError && <p className="text-small font-medium text-destructive">{submitError}</p>}
 
-        <Button type="submit" variant="success" size="lg" isLoading={isSubmitting}>
+        <Button
+          type="submit"
+          variant="success"
+          size="lg"
+          isLoading={isSubmitting}
+          disabled={isUploadingPhoto}
+        >
           Criar conta
         </Button>
       </form>

@@ -144,6 +144,20 @@ conta de teste dedicada) e um ciclo completo de renovação Pix (precisa de
 vale um advogado real assinar (cartão e Pix) e confirmar que a assinatura
 vira `ACTIVE` sozinha.
 
+## Upload de foto de perfil (advogado)
+
+`POST /api/uploads/photo` recebe um arquivo (`multipart/form-data`, campo
+`file`; JPG/PNG/WEBP/GIF, até 5MB) e sobe pro **Vercel Blob**
+(`@vercel/blob`), devolvendo a URL pública. `LawyerSignupForm` chama esse
+endpoint assim que o usuário escolhe o arquivo (antes de existir conta —
+por isso a rota não exige autenticação) e preenche `photoUrl` com a URL
+retornada. Sem autenticação, sem rate limit — aceitável pro volume
+esperado hoje, revisar se virar alvo de abuso.
+
+Precisa de um Blob Store conectado ao projeto na Vercel (**Storage →
+Create Database → Blob**) pra `BLOB_READ_WRITE_TOKEN` ser provisionado
+automaticamente — sem ele, o upload falha com 502.
+
 ## O que ainda é stub / próximos passos
 
 - **Notificação por e-mail/SMS**: hoje `Notification` é só in-app (aparece dentro do painel). O cliente só sabe que um advogado manifestou interesse ao entrar no site — falta plugar um serviço de e-mail/SMS que dispare a partir da criação de cada `Notification`.
