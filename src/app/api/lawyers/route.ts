@@ -29,7 +29,10 @@ export async function POST(req: NextRequest) {
         oabNumber: data.oabNumber,
         oabState: data.oabState,
         areasOfPractice: data.areasOfPractice,
-        activeRegions: [data.activeRegion],
+        activeRegions: data.activeRegions,
+        contactPhone: data.contactPhone || null,
+        contactEmail: data.contactEmail || null,
+        photoUrl: data.photoUrl || null,
       },
       select: { id: true },
     });

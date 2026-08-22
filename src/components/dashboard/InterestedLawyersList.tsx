@@ -6,6 +6,7 @@ export interface InterestedLawyerRow {
   interestId: string;
   status: InterestStatus;
   lawyerName: string;
+  lawyerPhotoUrl: string | null;
   oab: string | null;
   region: string | null;
 }
@@ -27,7 +28,7 @@ export function InterestedLawyersList({ rows }: { rows: InterestedLawyerRow[] })
           className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-background-secondary p-3"
         >
           <div className="flex items-center gap-3">
-            <Avatar name={row.lawyerName} size="sm" />
+            <Avatar name={row.lawyerName} photoUrl={row.lawyerPhotoUrl} size="sm" />
             <div>
               <p className="text-small font-medium text-foreground">{row.lawyerName}</p>
               <p className="text-caption text-foreground-muted">

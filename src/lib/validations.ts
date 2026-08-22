@@ -26,7 +26,24 @@ export const lawyerSignupSchema = z.object({
   areasOfPractice: z
     .array(z.nativeEnum(LegalArea))
     .min(1, "Selecione ao menos uma área de atuação."),
-  activeRegion: z.string().trim().min(2, "Informe a cidade/UF onde você atua."),
+  activeRegions: z
+    .array(z.string().trim().min(2, "Informe a cidade/UF."))
+    .min(1, "Informe ao menos uma cidade/UF onde você atua."),
+  contactPhone: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || phoneRegex.test(v), "Informe um telefone de contato válido, com DDD."),
+  contactEmail: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || z.string().email().safeParse(v).success, "Informe um e-mail de contato válido."),
+  photoUrl: z
+    .string()
+    .trim()
+    .optional()
+    .refine((v) => !v || z.string().url().safeParse(v).success, "Informe uma URL de imagem válida."),
 });
 
 // Dados de contato já vêm da conta do cliente logado — o formulário de

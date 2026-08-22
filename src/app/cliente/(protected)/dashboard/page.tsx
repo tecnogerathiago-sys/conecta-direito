@@ -18,7 +18,9 @@ export default async function ClienteDashboardPage() {
     where: { clientId: session.user.id },
     include: {
       interests: {
-        include: { lawyer: { select: { name: true, oabNumber: true, oabState: true, activeRegions: true } } },
+        include: {
+          lawyer: { select: { name: true, oabNumber: true, oabState: true, activeRegions: true, photoUrl: true } },
+        },
         orderBy: { createdAt: "asc" },
       },
     },
@@ -70,6 +72,7 @@ export default async function ClienteDashboardPage() {
                 interestId: i.id,
                 status: i.status,
                 lawyerName: i.lawyer.name,
+                lawyerPhotoUrl: i.lawyer.photoUrl,
                 oab: i.lawyer.oabNumber ? `OAB/${i.lawyer.oabState} ${i.lawyer.oabNumber}` : null,
                 region: i.lawyer.activeRegions[0] ?? null,
               }))}

@@ -64,6 +64,18 @@ enum SubscriptionStatus {
   CANCELED
 }
 
+enum SubscriptionPaymentMethod {
+  CARD // cobrança automática recorrente (PreApproval do Mercado Pago)
+  PIX // sem débito automático — gera uma cobrança nova a cada ciclo
+}
+
+enum SubscriptionPaymentStatus {
+  PENDING
+  PAID
+  EXPIRED // Pix não pago dentro da validade do QR code
+  FAILED
+}
+
 enum InterestStatus {
   PENDING // advogado manifestou, cliente ainda não respondeu
   ACCEPTED // cliente liberou o contato
@@ -74,6 +86,8 @@ enum NotificationType {
   LAWYER_INTEREST // cliente: um advogado manifestou interesse no seu caso
   CONTACT_ACCEPTED // advogado: cliente aceitou liberar o contato
   CONTACT_DECLINED // advogado: cliente recusou liberar o contato
+  PIX_PAYMENT_DUE // advogado: novo Pix gerado para o próximo ciclo da assinatura
+  PIX_PAYMENT_RECEIVED // advogado: Pix confirmado, assinatura renovada
 }
 
 // ------------------------------------------------------------
@@ -99,6 +113,12 @@ model User {
   // que advogados de estados diferentes podem ter o mesmo número.
   oabNumber    String?
   oabState     String? // UF de registro na OAB, ex: "SP"
+
+  // Contato público, exibido ao cliente — pode ser diferente do e-mail/telefone
+  // de login (ex: e-mail/telefone de escritório em vez de pessoal).
+  contactPhone String?
+  contactEmail String?
+  photoUrl     String? // URL da foto de perfil
 
   areasOfPractice LegalArea[] @default([])
   activeRegions   String[]    @default([]) // cidades/UFs em que atua
@@ -199,28 +219,59 @@ model InterestManifestation {
 // ------------------------------------------------------------
 
 model Subscription {
-  id                     String              @id @default(cuid())
+  id                     String                     @id @default(cuid())
 
   lawyerId               String
-  lawyer                 User                @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
+  lawyer                 User                       @relation(fields: [lawyerId], references: [id], onDelete: Cascade)
 
   plan                   SubscriptionPlan
-  status                 SubscriptionStatus  @default(PENDING)
-  priceBRL               Decimal             @db.Decimal(10, 2)
+  status                 SubscriptionStatus         @default(PENDING)
+  paymentMethod          SubscriptionPaymentMethod  @default(CARD)
+  priceBRL               Decimal                    @db.Decimal(10, 2)
 
-  startedAt              DateTime            @default(now())
+  startedAt              DateTime                   @default(now())
   renewsAt               DateTime?
   canceledAt             DateTime?
 
   paymentProvider        String? // ex: "mercadopago"
-  externalSubscriptionId String? // id da assinatura no gateway de pagamento
+  externalSubscriptionId String? // id da assinatura (PreApproval) no gateway — só p/ CARD
 
-  createdAt              DateTime            @default(now())
-  updatedAt              DateTime            @updatedAt
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+
+  payments                SubscriptionPayment[] // cobranças Pix (uma por ciclo) — vazio para CARD
 
   @@index([lawyerId])
   @@index([status])
   @@map("subscriptions")
+}
+
+// ------------------------------------------------------------
+// SubscriptionPayments (uma cobrança Pix avulsa por ciclo de assinatura —
+// sem débito automático, cada mês gera um QR code novo)
+// ------------------------------------------------------------
+
+model SubscriptionPayment {
+  id                 String                     @id @default(cuid())
+
+  subscriptionId     String
+  subscription       Subscription               @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  status             SubscriptionPaymentStatus  @default(PENDING)
+  amountBRL          Decimal                    @db.Decimal(10, 2)
+  dueDate            DateTime // quando o QR code expira / vencimento do ciclo
+
+  paidAt             DateTime?
+  externalPaymentId  String? // id do Payment no Mercado Pago
+
+  pixQrCode          String?                    @db.Text // "copia e cola"
+  pixQrCodeBase64    String?                    @db.Text // imagem do QR code (base64)
+
+  createdAt          DateTime                   @default(now())
+
+  @@index([subscriptionId])
+  @@index([status, dueDate])
+  @@map("subscription_payments")
 }
 
 // ------------------------------------------------------------

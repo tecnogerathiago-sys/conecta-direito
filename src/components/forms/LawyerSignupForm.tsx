@@ -3,38 +3,74 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { LegalArea } from "@prisma/client";
+import { Plus, X } from "lucide-react";
 import { lawyerSignupSchema, LawyerSignupInput } from "@/lib/validations";
 import { LEGAL_AREA_LABELS, BRAZILIAN_STATES } from "@/lib/constants";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Avatar } from "@/components/ui/Avatar";
 
 interface Props {
   redirectTo: string;
 }
 
+type FormValues = Omit<LawyerSignupInput, "activeRegions"> & {
+  activeRegions: { value: string }[];
+};
+
+// react-hook-form's useFieldArray precisa de um array de objetos, não de
+// strings soltas — este schema espelha lawyerSignupSchema (que continua
+// sendo o contrato real da API) só trocando o formato de activeRegions.
+const formSchema = lawyerSignupSchema.extend({
+  activeRegions: z
+    .array(z.object({ value: z.string().trim().min(2, "Informe a cidade/UF.") }))
+    .min(1, "Informe ao menos uma cidade/UF onde você atua."),
+});
+
 export function LawyerSignupForm({ redirectTo }: Props) {
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newRegion, setNewRegion] = useState("");
 
   const {
     register,
     handleSubmit,
+    watch,
+    control,
     formState: { errors },
-  } = useForm<LawyerSignupInput>({
-    resolver: zodResolver(lawyerSignupSchema),
+  } = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
     mode: "onBlur",
+    defaultValues: { activeRegions: [] },
   });
 
-  async function onSubmit(data: LawyerSignupInput) {
+  const { fields, append, remove } = useFieldArray({ control, name: "activeRegions" });
+  const fullName = watch("fullName");
+  const photoUrl = watch("photoUrl");
+
+  function addRegion() {
+    const value = newRegion.trim();
+    if (!value) return;
+    append({ value });
+    setNewRegion("");
+  }
+
+  async function onSubmit(values: FormValues) {
     setSubmitError(null);
     setIsSubmitting(true);
     try {
+      const data: LawyerSignupInput = {
+        ...values,
+        activeRegions: values.activeRegions.map((r) => r.value),
+      };
+
       const res = await fetch("/api/lawyers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,6 +110,23 @@ export function LawyerSignupForm({ redirectTo }: Props) {
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
         <fieldset className="flex flex-col gap-4">
           <legend className="mb-1 text-label font-medium text-foreground">Dados pessoais</legend>
+          <div className="flex items-center gap-3">
+            <Avatar name={fullName || "?"} size="md" />
+            <div className="flex-1">
+              <Input
+                label="URL da foto de perfil (opcional)"
+                placeholder="https://..."
+                error={errors.photoUrl?.message}
+                {...register("photoUrl")}
+              />
+            </div>
+          </div>
+          {photoUrl && (
+            <p className="text-caption text-foreground-muted">
+              Dica: se a imagem não aparecer no avatar acima, confira se o link é público e aponta
+              direto para o arquivo.
+            </p>
+          )}
           <Input
             label="Nome completo"
             placeholder="Seu nome completo"
@@ -82,13 +135,13 @@ export function LawyerSignupForm({ redirectTo }: Props) {
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Input
-              label="WhatsApp"
+              label="WhatsApp (login)"
               placeholder="(11) 91234-5678"
               error={errors.phone?.message}
               {...register("phone")}
             />
             <Input
-              label="E-mail"
+              label="E-mail (login)"
               type="email"
               placeholder="voce@email.com"
               error={errors.email?.message}
@@ -102,6 +155,30 @@ export function LawyerSignupForm({ redirectTo }: Props) {
             error={errors.password?.message}
             {...register("password")}
           />
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-4 border-t border-border pt-5">
+          <legend className="mb-1 text-label font-medium text-foreground">
+            Contato exibido aos clientes <span className="font-normal text-foreground-muted">(opcional)</span>
+          </legend>
+          <p className="-mt-2 text-caption text-foreground-muted">
+            Deixe em branco para usar o WhatsApp e e-mail de login acima.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Telefone de contato"
+              placeholder="(11) 3333-4444"
+              error={errors.contactPhone?.message}
+              {...register("contactPhone")}
+            />
+            <Input
+              label="E-mail de contato"
+              type="email"
+              placeholder="contato@escritorio.com"
+              error={errors.contactEmail?.message}
+              {...register("contactEmail")}
+            />
+          </div>
         </fieldset>
 
         <fieldset className="flex flex-col gap-4 border-t border-border pt-5">
@@ -124,12 +201,53 @@ export function LawyerSignupForm({ redirectTo }: Props) {
               ))}
             </Select>
           </div>
-          <Input
-            label="Cidade / região de atuação"
-            placeholder="Ex: São Paulo/SP"
-            error={errors.activeRegion?.message}
-            {...register("activeRegion")}
-          />
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-3 border-t border-border pt-5">
+          <legend className="mb-1 text-label font-medium text-foreground">Regiões de atuação</legend>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Input
+                label="Cidade/UF"
+                placeholder="Ex: São Paulo/SP"
+                value={newRegion}
+                onChange={(e) => setNewRegion(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addRegion();
+                  }
+                }}
+              />
+            </div>
+            <Button type="button" variant="outline" onClick={addRegion}>
+              <Plus className="size-4" aria-hidden />
+              Adicionar
+            </Button>
+          </div>
+          {fields.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {fields.map((field, i) => (
+                <li
+                  key={field.id}
+                  className="flex items-center gap-1.5 rounded-full bg-primary-subtle px-3 py-1 text-small text-primary"
+                >
+                  {field.value}
+                  <button
+                    type="button"
+                    onClick={() => remove(i)}
+                    aria-label={`Remover ${field.value}`}
+                    className="text-primary/70 hover:text-primary"
+                  >
+                    <X className="size-3.5" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {errors.activeRegions?.message && (
+            <span className="text-small text-destructive">{errors.activeRegions.message}</span>
+          )}
         </fieldset>
 
         <fieldset className="flex flex-col gap-3 border-t border-border pt-5">

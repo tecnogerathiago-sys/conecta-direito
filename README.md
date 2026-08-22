@@ -42,18 +42,22 @@ conecta-direito/
         leads/                   # POST cria lead (causa)
         leads/[id]/interest/      # POST advogado manifesta interesse (exige assinatura ativa)
         interests/[id]/respond/    # POST cliente aceita/recusa liberar contato
-        subscriptions/checkout/     # inicia assinatura (stub de gateway)
-        payments/webhook/            # confirma pagamento e ativa/renova assinatura
+        subscriptions/checkout/     # inicia assinatura (cartão via plano, ou Pix avulso)
+        payments/webhook/            # confirma pagamento (preapproval e Pix) e ativa/renova
+        cron/pix-renewals/            # job diário: gera Pix do próximo ciclo, marca PAST_DUE
         auth/[...nextauth]/            # NextAuth
     components/
       landing/, forms/, dashboard/, ui/, shell/, providers/
     lib/
       prisma.ts        # client singleton
       auth.ts          # NextAuthOptions (Credentials + bcrypt)
-      subscriptions.ts  # catálogo de planos (Básico/Pro)
+      mercadopago.ts     # clients PreApproval / PreApprovalPlan / Payment
+      subscriptions.ts  # catálogo de planos (Básico/Pro) + ids do Mercado Pago
       masking.ts         # PublicLead (anônimo) vs ReleasedContact (completo)
       services/
         interests.ts       # regra de negócio de manifestar interesse / responder — com testes
+        pixBilling.ts        # cria cobrança Pix (Payment + SubscriptionPayment)
+        mercadopagoWebhook.ts # valida assinatura HMAC do webhook — com testes
       validations.ts   # schemas Zod do formulário
       constants.ts      # labels de áreas, urgência, UFs
     types/
@@ -65,7 +69,8 @@ conecta-direito/
 - **User** — clientes, advogados e admins. Advogado tem OAB, áreas/regiões de atuação e um histórico de `Subscription`.
 - **Lead** — causa cadastrada pelo cliente. Contém dados sensíveis (`fullName`, `cpf`, `phone`, `email`) que **nunca** devem sair da camada de API sem passar por `lib/masking.ts`. Identificada publicamente só por um código anônimo (`caseCodeFor()`, ex: "Caso #A1B2C3").
 - **InterestManifestation** — registro de um advogado manifestando interesse numa causa. `status` (`PENDING`/`ACCEPTED`/`DECLINED`) e `contactReleasedAt` (nulo até o cliente aceitar) vivem aqui — por advogado, não por causa, já que causas diferentes podem ter respostas diferentes para advogados diferentes. `Lead.maxInterests` (padrão 5) limita quantos advogados podem manifestar interesse na mesma causa.
-- **Subscription** — histórico de assinaturas do advogado (`PENDING` → `ACTIVE` → `PAST_DUE`/`CANCELED`). Acesso ao mural e à ação de manifestar interesse depende de existir uma `Subscription` com `status = ACTIVE`.
+- **Subscription** — histórico de assinaturas do advogado (`PENDING` → `ACTIVE` → `PAST_DUE`/`CANCELED`), com `paymentMethod` (`CARD`/`PIX`). Acesso ao mural e à ação de manifestar interesse depende de existir uma `Subscription` com `status = ACTIVE`.
+- **SubscriptionPayment** — só para `paymentMethod = PIX`: uma cobrança avulsa por ciclo (QR code, código copia-e-cola, vencimento). Cartão não usa essa tabela — a recorrência é automática no próprio Mercado Pago.
 - **Notification** — eventos in-app (interesse manifestado, contato aceito/recusado). Sem envio de e-mail/SMS ainda — ver "o que falta" abaixo.
 
 ### LGPD / privacidade
@@ -87,32 +92,57 @@ Login de demonstração (advogado, já com assinatura ativa): `advogado.demo@con
 
 ## Pagamentos (Mercado Pago)
 
-`PAYMENTS_ENABLED = true` em `lib/constants.ts`, integrado de verdade com o
-Mercado Pago (PreApproval / assinaturas recorrentes) — ver
-`lib/mercadopago.ts`, `POST /api/subscriptions/checkout` e
-`POST /api/payments/webhook`. Hoje as credenciais em uso (env vars
-`MERCADOPAGO_ACCESS_TOKEN`/`MERCADOPAGO_PUBLIC_KEY`/`MERCADOPAGO_WEBHOOK_SECRET`)
-são **de teste** (prefixo `TEST-`), então nenhuma cobrança real acontece.
+`PAYMENTS_ENABLED = true` em `lib/constants.ts`. Rodando em **produção** com
+credenciais reais (`APP_USR-...`) na Vercel; localmente usa credenciais de
+**teste** (`TEST-...`) de propósito, pra nenhum `npm run dev` conseguir gerar
+cobrança real por engano.
 
-Verificado manualmente contra a API real do Mercado Pago: o token autentica,
-a criação da assinatura (`POST /api/subscriptions/checkout`) cria um
-PreApproval de verdade e devolve uma `init_point` válida, e a validação de
-assinatura do webhook (`lib/services/mercadopagoWebhook.ts`) está coberta
-por testes usando o segredo real.
+Dois métodos de pagamento, cada um com um fluxo bem diferente:
 
-**O que não deu pra verificar em sandbox**: autorizar uma assinatura de
-teste até o fim (tela de checkout → `status: authorized` → webhook →
-`Subscription.status = ACTIVE`). A conta usada para gerar as credenciais é
-uma conta Mercado Pago real (não uma conta de teste dedicada), e nesse
-cenário: (a) a tela de checkout deles bloqueia navegador automatizado
-(Playwright), e (b) tentar autorizar via API com um cartão de teste retorna
-`404 Card token service not found` — a autorização parece só ser possível
-pela tela hospedada deles, mesmo por API. Pra fechar esse ciclo em sandbox
-seria preciso criar uma aplicação + webhook dedicados para uma conta de
-teste (`/users/test_user`), o que não foi feito. **Antes de cobrar
-advogados de verdade**, troque as 3 variáveis pelas credenciais de
-produção e faça uma assinatura real ponta a ponta pra confirmar que o
-webhook ativa a assinatura corretamente.
+### Cartão (recorrente automático)
+
+`POST /api/subscriptions/checkout` com `{ method: "card" }` devolve o
+`init_point` de um **PreApprovalPlan** já cadastrado no Mercado Pago (não
+cria uma PreApproval avulsa via API — isso exige `card_token_id` e não é o
+fluxo hospedado normal; foi a causa de um bug real onde o botão "Confirmar"
+da tela do Mercado Pago nunca habilitava). Os ids dos planos
+(`MERCADOPAGO_PLAN_ID_BASICO`/`_PRO`) foram criados uma vez via API — um
+por plano, um por ambiente (teste/produção têm ids diferentes) — e não
+precisam ser recriados. `external_reference` é anexado à URL do plano como
+melhor esforço; como isso não é comportamento documentado, o webhook em
+`handlePreapprovalNotification` tem um fallback: se a PreApproval que
+voltou não tiver `external_reference`, casa pela Subscription `PENDING`
+mais recente do advogado com aquele e-mail.
+
+### Pix (sem débito automático)
+
+Pix não tem "recarga automática" como cartão — cada ciclo é uma cobrança
+avulsa nova. `POST /api/subscriptions/checkout` com `{ method: "pix" }`
+cria um `SubscriptionPayment` e um Payment do tipo Pix via
+`lib/services/pixBilling.ts`, devolvendo o QR code (base64) e o código
+"copia e cola" — exibidos inline em `PixCheckoutPanel`, sem redirecionar
+pra fora do app. `/api/cron/pix-renewals` (agendado diariamente via
+`vercel.json`, protegido por `CRON_SECRET`) gera a cobrança do próximo
+ciclo com alguns dias de antecedência e marca `PAST_DUE` quem passou do
+prazo de tolerância sem pagar.
+
+**Importante**: o webhook (`POST /api/payments/webhook`) só recebe
+notificações dos eventos marcados no painel do Mercado Pago em
+Webhooks → Configurar notificações. Hoje só **"Planos e assinaturas"**
+está marcado (cobre o fluxo de cartão) — pra confirmações de Pix chegarem,
+é preciso marcar também **"Pagamentos (legacy)"**, nos dois modos (teste
+e produção).
+
+Verificado manualmente contra a API real: criação de assinatura (cartão),
+criação de cobrança Pix com QR code real, e validação de assinatura do
+webhook (`lib/services/mercadopagoWebhook.ts`, 6 testes usando o segredo
+real) — tudo confirmado funcionando. **O que não foi possível verificar em
+sandbox**: autorizar uma assinatura de cartão até o fim (a tela hospedada
+do Mercado Pago bloqueia navegador automatizado, e a conta usada não é uma
+conta de teste dedicada) e um ciclo completo de renovação Pix (precisa de
+~30 dias reais ou disparo manual do cron). Antes de confiar 100% no fluxo,
+vale um advogado real assinar (cartão e Pix) e confirmar que a assinatura
+vira `ACTIVE` sozinha.
 
 ## O que ainda é stub / próximos passos
 

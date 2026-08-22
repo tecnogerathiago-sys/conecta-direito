@@ -41,3 +41,17 @@ export function getPlanDefinition(plan: SubscriptionPlan): PlanDefinition {
   if (!found) throw new Error(`Plano desconhecido: ${plan}`);
   return found;
 }
+
+/**
+ * Id do PreApprovalPlan correspondente no Mercado Pago — criado uma única
+ * vez (ver histórico do commit) e referenciado por env var, uma por
+ * ambiente (teste/produção usam ids diferentes, assim como o access token).
+ * Usar um plano cadastrado em vez de auto_recurring solto é o formato que
+ * o Mercado Pago documenta como principal para assinaturas.
+ */
+export function getMercadoPagoPlanId(plan: SubscriptionPlan): string {
+  const envVar = plan === "BASICO" ? "MERCADOPAGO_PLAN_ID_BASICO" : "MERCADOPAGO_PLAN_ID_PRO";
+  const id = process.env[envVar];
+  if (!id) throw new Error(`${envVar} não configurado.`);
+  return id;
+}

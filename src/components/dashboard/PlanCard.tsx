@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, CreditCard, QrCode } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
+import { PixCheckoutPanel } from "@/components/dashboard/PixCheckoutPanel";
 import { PAYMENTS_ENABLED } from "@/lib/constants";
 import { formatBRL } from "@/lib/format";
 import type { SubscriptionPlan } from "@prisma/client";
@@ -17,28 +18,44 @@ interface Props {
   isCurrentPlan?: boolean;
 }
 
-export function PlanCard({ plan, name, priceBRL, features, recommended, isCurrentPlan }: Props) {
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface PixPayment {
+  qrCode: string | null;
+  qrCodeBase64: string | null;
+  dueDate: string;
+}
 
-  async function handleSubscribe() {
+export function PlanCard({ plan, name, priceBRL, features, recommended, isCurrentPlan }: Props) {
+  const [loadingMethod, setLoadingMethod] = useState<"card" | "pix" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pixPayment, setPixPayment] = useState<PixPayment | null>(null);
+
+  async function handleSubscribe(method: "card" | "pix") {
     setError(null);
-    setIsRedirecting(true);
+    setLoadingMethod(method);
     try {
       const res = await fetch("/api/subscriptions/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ plan, method }),
       });
       const body = await res.json();
 
       if (!res.ok) throw new Error(body?.error ?? "Não foi possível iniciar a assinatura.");
 
-      // Em produção, body.paymentUrl aponta para o checkout do gateway (Pix / Cartão).
-      window.location.href = body.paymentUrl;
+      if (method === "card") {
+        window.location.href = body.paymentUrl;
+        return;
+      }
+
+      setPixPayment({
+        qrCode: body.payment.qrCode,
+        qrCodeBase64: body.payment.qrCodeBase64,
+        dueDate: body.payment.dueDate,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro inesperado.");
-      setIsRedirecting(false);
+    } finally {
+      setLoadingMethod(null);
     }
   }
 
@@ -78,16 +95,37 @@ export function PlanCard({ plan, name, priceBRL, features, recommended, isCurren
         <Button variant="outline" fullWidth disabled>
           Plano atual
         </Button>
+      ) : pixPayment ? (
+        <PixCheckoutPanel
+          qrCode={pixPayment.qrCode}
+          qrCodeBase64={pixPayment.qrCodeBase64}
+          dueDate={pixPayment.dueDate}
+          onCancel={() => setPixPayment(null)}
+        />
       ) : PAYMENTS_ENABLED ? (
         <>
-          <Button
-            variant={recommended ? "primary" : "outline"}
-            fullWidth
-            onClick={handleSubscribe}
-            isLoading={isRedirecting}
-          >
-            Assinar plano {name}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant={recommended ? "primary" : "outline"}
+              fullWidth
+              onClick={() => handleSubscribe("card")}
+              isLoading={loadingMethod === "card"}
+              disabled={loadingMethod !== null}
+            >
+              <CreditCard className="size-4" aria-hidden />
+              Cartão
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
+              onClick={() => handleSubscribe("pix")}
+              isLoading={loadingMethod === "pix"}
+              disabled={loadingMethod !== null}
+            >
+              <QrCode className="size-4" aria-hidden />
+              Pix
+            </Button>
+          </div>
           {error && <p className="text-small text-destructive">{error}</p>}
         </>
       ) : (
