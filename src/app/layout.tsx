@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import { WhatsAppFloatingButton } from "@/components/shell/WhatsAppFloatingButton";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={inter.variable}>
       <body className="font-sans">
         <SessionProvider>{children}</SessionProvider>
+        <WhatsAppFloatingButton />
       </body>
     </html>
   );

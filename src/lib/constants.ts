@@ -36,6 +36,11 @@ export const MAX_INTERESTS_PER_LEAD = 5;
 // Trocar pelas credenciais de produção antes de operar com usuários reais.
 export const PAYMENTS_ENABLED = true;
 
+// Número de suporte — usado tanto na seção "Precisa de ajuda?" da landing
+// quanto no botão flutuante do WhatsApp (exibido em todas as páginas).
+export const SUPPORT_WHATSAPP_DISPLAY = "(11) 95285-4008";
+export const SUPPORT_WHATSAPP_LINK = "5511952854008";
+
 // Cartão desligado temporariamente: em produção, toda cobrança recorrente
 // por cartão está voltando cc_rejected_high_risk do Mercado Pago (banco
 // emissor recusando por validação de segurança própria dele, não algo do

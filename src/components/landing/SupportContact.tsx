@@ -1,7 +1,5 @@
-import { MessageCircle } from "lucide-react";
-
-const WHATSAPP_NUMBER_DISPLAY = "(11) 95285-4008";
-const WHATSAPP_NUMBER_LINK = "5511952854008";
+import { WhatsAppIcon } from "@/components/ui/WhatsAppIcon";
+import { SUPPORT_WHATSAPP_DISPLAY, SUPPORT_WHATSAPP_LINK } from "@/lib/constants";
 
 export function SupportContact() {
   return (
@@ -12,13 +10,13 @@ export function SupportContact() {
           Fale com o nosso suporte pelo WhatsApp.
         </p>
         <a
-          href={`https://wa.me/${WHATSAPP_NUMBER_LINK}`}
+          href={`https://wa.me/${SUPPORT_WHATSAPP_LINK}`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-md bg-success px-5 py-2.5 text-small font-semibold text-success-foreground transition-colors duration-150 hover:bg-success-hover"
         >
-          <MessageCircle className="size-4" aria-hidden />
-          {WHATSAPP_NUMBER_DISPLAY}
+          <WhatsAppIcon className="size-4" />
+          {SUPPORT_WHATSAPP_DISPLAY}
         </a>
       </div>
     </section>
