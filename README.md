@@ -101,7 +101,21 @@ cobrança real por engano.
 
 Dois métodos de pagamento, cada um com um fluxo bem diferente:
 
-### Cartão (recorrente automático)
+### Cartão — temporariamente desligado (`CARD_PAYMENTS_ENABLED = false`)
+
+Em produção, toda cobrança recorrente por cartão está voltando
+`cc_rejected_high_risk` do Mercado Pago — confirmado com várias
+contas/cartões/bancos diferentes (inclusive CNPJ e checkout sem conta), e
+mesmo um cartão Nubank sinalizado pela própria IA de suporte do Mercado
+Pago como recusado pelo banco emissor por "validação de segurança"
+própria dele. Não é algo que o código controle — provavelmente é o banco
+emissor sendo cauteloso com uma assinatura recorrente nova pra um
+comerciante sem histórico ainda. Até isso ser esclarecido, o botão
+"Cartão" em `PlanCard` fica desabilitado (com aviso) e a rota de checkout
+recusa `{ method: "card" }` com 503, mesmo se alguém chamar a API direto.
+**Pix continua funcionando normalmente** e é o método recomendado
+enquanto isso não se resolve. Pra reativar, basta virar
+`CARD_PAYMENTS_ENABLED` para `true` em `lib/constants.ts`.
 
 `POST /api/subscriptions/checkout` com `{ method: "card" }` devolve o
 `init_point` de um **PreApprovalPlan** já cadastrado no Mercado Pago (não

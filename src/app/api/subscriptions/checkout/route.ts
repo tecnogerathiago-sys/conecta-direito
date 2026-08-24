@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getPlanDefinition, getMercadoPagoPlanId } from "@/lib/subscriptions";
 import { getPreApprovalPlanClient } from "@/lib/mercadopago";
 import { createPixCharge } from "@/lib/services/pixBilling";
-import { PAYMENTS_ENABLED } from "@/lib/constants";
+import { PAYMENTS_ENABLED, CARD_PAYMENTS_ENABLED } from "@/lib/constants";
 
 const checkoutSchema = z.object({
   plan: z.enum(["BASICO", "PRO"]),
@@ -43,6 +43,13 @@ export async function POST(req: NextRequest) {
   const parsed = checkoutSchema.safeParse(json);
   if (!parsed.success) {
     return NextResponse.json({ error: "Dados inválidos." }, { status: 400 });
+  }
+
+  if (parsed.data.method === "card" && !CARD_PAYMENTS_ENABLED) {
+    return NextResponse.json(
+      { error: "Pagamento por cartão temporariamente indisponível. Use o Pix." },
+      { status: 503 }
+    );
   }
 
   const lawyer = await prisma.user.findUnique({ where: { id: session.user.id } });

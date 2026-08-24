@@ -5,7 +5,7 @@ import { Check, CreditCard, QrCode } from "lucide-react";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button";
 import { PixCheckoutPanel } from "@/components/dashboard/PixCheckoutPanel";
-import { PAYMENTS_ENABLED } from "@/lib/constants";
+import { PAYMENTS_ENABLED, CARD_PAYMENTS_ENABLED } from "@/lib/constants";
 import { formatBRL } from "@/lib/format";
 import type { SubscriptionPlan } from "@prisma/client";
 
@@ -109,17 +109,18 @@ export function PlanCard({ plan, name, priceBRL, features, recommended, isCurren
         <>
           <div className="flex gap-2">
             <Button
-              variant={recommended ? "primary" : "outline"}
+              variant={CARD_PAYMENTS_ENABLED && recommended ? "primary" : "outline"}
               fullWidth
               onClick={() => handleSubscribe("card")}
               isLoading={loadingMethod === "card"}
-              disabled={loadingMethod !== null}
+              disabled={!CARD_PAYMENTS_ENABLED || loadingMethod !== null}
+              title={CARD_PAYMENTS_ENABLED ? undefined : "Pagamento por cartão temporariamente indisponível."}
             >
               <CreditCard className="size-4" aria-hidden />
               Cartão
             </Button>
             <Button
-              variant="outline"
+              variant={recommended ? "primary" : "outline"}
               fullWidth
               onClick={() => handleSubscribe("pix")}
               isLoading={loadingMethod === "pix"}
@@ -129,6 +130,11 @@ export function PlanCard({ plan, name, priceBRL, features, recommended, isCurren
               Pix
             </Button>
           </div>
+          {!CARD_PAYMENTS_ENABLED && (
+            <p className="text-caption text-foreground-muted">
+              Pagamento por cartão temporariamente indisponível. Use o Pix por enquanto.
+            </p>
+          )}
           {error && <p className="text-small text-destructive">{error}</p>}
         </>
       ) : (

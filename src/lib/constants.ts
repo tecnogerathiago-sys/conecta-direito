@@ -35,3 +35,11 @@ export const MAX_INTERESTS_PER_LEAD = 5;
 // usando credenciais TEST-, então nenhuma cobrança real é processada.
 // Trocar pelas credenciais de produção antes de operar com usuários reais.
 export const PAYMENTS_ENABLED = true;
+
+// Cartão desligado temporariamente: em produção, toda cobrança recorrente
+// por cartão está voltando cc_rejected_high_risk do Mercado Pago (banco
+// emissor recusando por validação de segurança própria dele, não algo do
+// nosso lado) — confirmado com vários bancos/contas diferentes. Pix
+// continua funcionando normalmente. Reativar assim que o motivo for
+// esclarecido com o Mercado Pago / bancos emissores.
+export const CARD_PAYMENTS_ENABLED = false;
