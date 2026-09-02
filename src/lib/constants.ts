@@ -41,6 +41,11 @@ export const PAYMENTS_ENABLED = true;
 export const SUPPORT_WHATSAPP_DISPLAY = "(11) 95285-4008";
 export const SUPPORT_WHATSAPP_LINK = "5511952854008";
 
+// Tag do Google Ads (gtag.js) — carregada em todas as páginas via
+// GoogleAdsTag no layout raiz. Não é segredo (é um id público de
+// rastreamento), por isso fica direto no código em vez de env var.
+export const GOOGLE_ADS_ID = "AW-18393558579";
+
 // Cartão desligado temporariamente: em produção, toda cobrança recorrente
 // por cartão está voltando cc_rejected_high_risk do Mercado Pago (banco
 // emissor recusando por validação de segurança própria dele, não algo do
