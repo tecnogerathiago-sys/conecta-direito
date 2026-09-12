@@ -3,11 +3,13 @@ import { HowItWorks } from "@/components/landing/HowItWorks";
 import { LawyerCta } from "@/components/landing/LawyerCta";
 import { SupportContact } from "@/components/landing/SupportContact";
 import { WrongAccountBanner } from "@/components/landing/WrongAccountBanner";
+import { MarketingNavbar } from "@/components/landing/MarketingNavbar";
 import { LEGAL_AREA_LABELS } from "@/lib/constants";
 
 export default function LandingPage() {
   return (
     <main>
+      <MarketingNavbar />
       <WrongAccountBanner />
       <Hero />
       <HowItWorks />

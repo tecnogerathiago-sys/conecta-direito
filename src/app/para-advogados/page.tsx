@@ -4,6 +4,7 @@ import { LawyerBenefits } from "@/components/landing/LawyerBenefits";
 import { LawyerPricingPreview } from "@/components/landing/LawyerPricingPreview";
 import { LawyerFaq } from "@/components/landing/LawyerFaq";
 import { SupportContact } from "@/components/landing/SupportContact";
+import { MarketingNavbar } from "@/components/landing/MarketingNavbar";
 
 export const metadata: Metadata = {
   title: "Conecta Direito para Advogados | Mais causas, sem pagar por lead",
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export default function ParaAdvogadosPage() {
   return (
     <main>
+      <MarketingNavbar />
       <LawyerLandingHero />
       <LawyerBenefits />
       <LawyerPricingPreview />

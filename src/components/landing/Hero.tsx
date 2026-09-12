@@ -1,6 +1,12 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Check, ShieldCheck, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+
+const TRUST_BADGES = [
+  { icon: Check, label: "Grátis para quem busca advogado" },
+  { icon: ShieldCheck, label: "Você decide quem recebe seu contato" },
+  { icon: MessageCircle, label: "Suporte também por WhatsApp" },
+];
 
 export function Hero() {
   return (
@@ -30,6 +36,18 @@ export function Hero() {
             Como funciona
           </a>
         </div>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+          {TRUST_BADGES.map(({ icon: Icon, label }) => (
+            <span
+              key={label}
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1.5 text-caption font-medium text-primary-foreground/90"
+            >
+              <Icon className="size-3.5" aria-hidden />
+              {label}
+            </span>
+          ))}
+        </div>
+
         <Link
           href="/cliente/entrar"
           className="mt-1 text-small text-primary-foreground/60 underline underline-offset-4 hover:text-primary-foreground/90"
